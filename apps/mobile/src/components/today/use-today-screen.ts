@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
 import { useHeaderTopInset } from "@/components/screen-header";
 import { useCelebration } from "@/lib/use-celebration";
@@ -38,6 +39,32 @@ export type TodayHabitRow = {
   done: boolean;
 };
 
+/**
+ * V7 Day Sheet（今日改版）用到的纯派生口径。
+ * 时间弧固定覆盖 06:00–24:00：18 小时 = 1080 分钟，把「当天分钟数」线性映射到 0..1，
+ * 弧的角度由组件按这个进度算，钩子只负责给数值，不关心几何。
+ */
+const ARC_START_MINUTES = 6 * 60;
+const ARC_SPAN_MINUTES = 18 * 60;
+
+/** 月份英文缩写（Day Sheet 大日期下方那行小字，与 demo 的 NOV 一致） */
+const MONTH_LABELS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"] as const;
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** 当天时刻（分钟数）→ 时间弧进度 0..1；凌晨 0–6 点钳到 0，24 点钳到 1 */
+function arcProgressOfMinutes(minutes: number): number {
+  if (!Number.isFinite(minutes)) return 0;
+  return Math.max(0, Math.min(1, (minutes - ARC_START_MINUTES) / ARC_SPAN_MINUTES));
+}
+
+/** 专注时长展示：1h 22m / 25m（0 分钟也给出 0m，不用「—」占位，弧下三格是「已经发生的事」） */
+function formatFocusMinutes(minutes: number): string {
+  const total = Math.max(0, Math.round(Number.isFinite(minutes) ? minutes : 0));
+  if (total < 60) return total + "m";
+  return Math.floor(total / 60) + "h " + pad2(total % 60) + "m";
+}
+
 export function useTodayScreen() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
@@ -59,6 +86,20 @@ export function useTodayScreen() {
   const token = useAppStore((s) => s.token);
   const identity = useIdentity();
   const openFocus = useFocusSessionStore((s) => s.openFocus);
+
+  /**
+   * V7 Day Sheet 的「现在」：只在本页获得焦点时每 30 秒对齐一次。
+   * 时间弧进度、弧内时钟胶囊、右上角 HH:MM 与问候语都读同一个时刻，避免三处各取 new Date() 后互相错位。
+   * 用 useFocusEffect 而不是常驻 setInterval：Tab 切走后计时器会停，不在后台白跑（也不做循环动画）。
+   */
+  const [now, setNow] = useState(() => new Date());
+  useFocusEffect(
+    useCallback(() => {
+      setNow(new Date());
+      const timer = setInterval(() => setNow(new Date()), 30_000);
+      return () => clearInterval(timer);
+    }, [])
+  );
 
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   /** 里程碑庆祝（今日计划全部完成）：统一走 useCelebration，同一天只弹一次 */
@@ -104,7 +145,7 @@ export function useTodayScreen() {
   const today = todayISOInZone();
   /** isScheduled 需要 Date（按星期判定），字符串 key 只用于取数 */
   const todayDate = useMemo(() => new Date(), []);
-  const h = new Date().getHours();
+  const h = now.getHours();
   const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
   /** Hero 的一行日期（v2：问候 + 日期 + 打卡数 + 本周 7 格） */
   const dateLabel = useMemo(
@@ -417,6 +458,43 @@ export function useTodayScreen() {
     setQuickOpen(true);
   };
 
+  /* ---------------- V7 Day Sheet：一页日程的数据口径（全部来自既有本地数据） ---------------- */
+
+  /** 大日期：21 / NOV / 周六 + 第 47 周 · 09:41（日期取当前时刻，不是 mock） */
+  const dateNum = String(now.getDate());
+  const monthLabel = MONTH_LABELS[now.getMonth()] ?? MONTH_LABELS[0];
+  const weekdayLabel = "周" + WEEKDAY_LABELS[now.getDay()];
+  const nowLabel = pad2(now.getHours()) + ":" + pad2(now.getMinutes());
+  const nowProgress = arcProgressOfMinutes(now.getHours() * 60 + now.getMinutes());
+  const greetFirst = greet + "。";
+  /** 第二行是固定文案（demo 是「今天只做三件事。」），第一行才是按小时段派生的真实问候 */
+  const greetHeadline = "今天只做三件事。";
+
+  /**
+   * 时间弧上的专注块圆点：今日已发生的会话（computeFocusStats 的 todayList 就是今日口径，按开始时间升序）。
+   * 超过 3 条时取「最早 / 中间 / 最晚」三个代表点，而不是硬塞 3 个重叠的点。
+   */
+  const focusDots = (() => {
+    const list = focusStats.todayList;
+    if (list.length === 0) return [] as { key: string; progress: number; minutes: number }[];
+    const picked =
+      list.length <= 3
+        ? list
+        : [0, Math.floor((list.length - 1) / 2), list.length - 1].map((i) => list[i]);
+    return picked.map((entry, i) => {
+      const [hh, mm] = entry.startTime.split(":").map((v) => Number(v));
+      return {
+        key: entry.startTime + "#" + i,
+        progress: arcProgressOfMinutes(hh * 60 + mm),
+        minutes: entry.minutes,
+      };
+    });
+  })();
+
+  /** 弧下三格：今日专注（1h 22m）/ 任务完成（2/3）/ 连续天数 */
+  const focusTodayLabel = formatFocusMinutes(focusMinutesToday);
+  const taskRatioLabel = todayTasks.length > 0 ? todayDone + "/" + todayTasks.length : "—";
+
   /** 页面模型：派生数据 + 状态 + 回调，交给 today.tsx 与各区块组件显式接收。 */
   return {
     styles,
@@ -478,6 +556,16 @@ export function useTodayScreen() {
     setPendingChoice,
     openFocus,
     openQuickStart,
+    dateNum,
+    monthLabel,
+    weekdayLabel,
+    nowLabel,
+    nowProgress,
+    greetFirst,
+    greetHeadline,
+    focusDots,
+    focusTodayLabel,
+    taskRatioLabel,
     celebrationRequest,
     closeCelebration,
     burst,

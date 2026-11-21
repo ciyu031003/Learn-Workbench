@@ -244,6 +244,16 @@ export const typography = {
   num: { fontSize: 20, lineHeight: 24, fontWeight: "800", letterSpacing: -0.3 },
   /** v3 大数字（今日专注时长，40/500，对接提案 .big 档） */
   numLg: { fontSize: 40, lineHeight: 40, fontWeight: "500" },
+
+  // ---- v7 字阶（Day Sheet / 沉浸阅读 / 决策工作台）----
+  /** Day Sheet 大日期：52/850（负字距让数字更紧致） */
+  dateNum: { fontSize: 52, lineHeight: 52, fontWeight: "800", letterSpacing: -2 },
+  /** 知识点阅读大标题：26/34 */
+  docTitle: { fontSize: 26, lineHeight: 34, fontWeight: "800", letterSpacing: -0.5 },
+  /** 全屏答题题目：21/30 */
+  qTitle: { fontSize: 21, lineHeight: 30, fontWeight: "700", letterSpacing: -0.3 },
+  /** 决策工作台数字：34/800（匹配度） */
+  numXl: { fontSize: 34, lineHeight: 36, fontWeight: "800", letterSpacing: -1 },
 } as const;
 
 export type TypographyToken = keyof typeof typography;

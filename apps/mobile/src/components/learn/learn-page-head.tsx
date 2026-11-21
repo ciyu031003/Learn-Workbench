@@ -1,29 +1,29 @@
 import { useMemo } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { router } from "expo-router";
 
-import { ThemedIcon } from "@/components/themed-icon";
+import { Icon } from "@/components/ui/icon";
 import { PressableScale } from "@/components/pressable-scale";
-import { PageHead } from "@/components/v2/page-head";
 import { useTheme } from "@/theme";
 
 import { makeStyles } from "./learn-styles";
 
 /**
- * ① 页头：eyebrow + 主标题 + 副文案；右上保留「阶段路线 / 全局搜索」两个入口。
- * 入场动画（entrance(0)）与 headRow 布局留在 learn.tsx 的组合层，本组件只出内容。
+ * ① 学习舱页头（对齐 demo .lc-hero 上半部分）：
+ * eyebrow「LEARNING CABIN · P1」+ 两行大标题（当前阶段名，来自 roadmap 数据）。
+ *
+ * 右上保留「阶段路线 / 全局搜索」两个入口（原页头功能不丢）：
+ * 章节树负责「当前阶段内」，这两个按钮负责「换阶段」与「跨内容查找」。
  */
-export function LearnPageHead({ headSub }: { headSub: string }) {
+export function LearnPageHead({ eyebrow, title }: { eyebrow: string; title: string }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <>
-        <PageHead
-          eyebrow="学习 · 网络与安全"
-          title="学习"
-          subtitle={headSub}
-          style={styles.headText}
-        />
+      <View style={styles.headRow}>
+        <Text style={styles.eyebrow} numberOfLines={1}>
+          {eyebrow}
+        </Text>
         <View style={styles.headActions}>
           <PressableScale
             hitSlop={8}
@@ -33,7 +33,7 @@ export function LearnPageHead({ headSub }: { headSub: string }) {
             accessibilityRole="button"
             accessibilityLabel="打开阶段路线"
           >
-            <ThemedIcon name="git-branch-outline" size={18} color={colors.textMuted} />
+            <Icon name="target" size={18} weight="regular" color={colors.textMeta} />
           </PressableScale>
           <PressableScale
             hitSlop={8}
@@ -43,9 +43,13 @@ export function LearnPageHead({ headSub }: { headSub: string }) {
             accessibilityRole="button"
             accessibilityLabel="全局搜索"
           >
-            <ThemedIcon name="search" size={18} color={colors.textMuted} />
+            <Icon name="search" size={18} weight="regular" color={colors.textMeta} />
           </PressableScale>
         </View>
+      </View>
+      <Text style={styles.headTitle} numberOfLines={2}>
+        {title}
+      </Text>
     </>
   );
 }

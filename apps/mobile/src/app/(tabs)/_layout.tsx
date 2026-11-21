@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { Tabs, useNavigation } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon, type IconName } from "@/components/ui/icon";
 import {
   Animated as RNAnimated,
   Easing,
@@ -10,7 +10,6 @@ import {
   type OpaqueColorValue,
 } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { ThemedIcon } from "@/components/themed-icon";
 import { FloatingTabBar } from "@/components/v2/floating-tab-bar";
 import { haptics } from "@/lib/haptics";
 import { SPRING, useReducedMotion } from "@/lib/motion";
@@ -36,7 +35,7 @@ import { scrollToTop } from "@/lib/scroll-to-top";
  *  - TabIcon 的弹簧动效保持原样（动效点数量不变，见 scripts/check-motion-budget.mjs）。
  */
 
-type IoniconName = keyof typeof Ionicons.glyphMap;
+type TabIconName = IconName;
 
 /**
  * Tab 图标：选中弹跳 + SF Symbols。
@@ -45,17 +44,10 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
  */
 function TabIcon({
   name,
-  outlineName,
-  iosFilled,
-  iosOutline,
   color,
   focused,
 }: {
-  name: IoniconName;
-  outlineName: IoniconName;
-  /** iOS 26 的 SF Symbol 名（Android 自动走 name） */
-  iosFilled: string;
-  iosOutline: string;
+  name: TabIconName;
   color: string | OpaqueColorValue;
   focused?: boolean;
 }) {
@@ -84,10 +76,11 @@ function TabIcon({
   return (
     <View style={styles.tabIcon}>
       <Animated.View style={animatedStyle}>
-        <ThemedIcon
-          ios={focused ? iosFilled : iosOutline}
-          name={focused ? name : outlineName}
-          size={24}
+        {/* V7：Phosphor 图标；选中态用 fill（实心），未选中用 regular（描边） */}
+        <Icon
+          name={name}
+          size={26}
+          weight={focused ? "fill" : "regular"}
           color={typeof color === "string" ? color : undefined}
         />
       </Animated.View>
@@ -104,7 +97,7 @@ function TabIcon({
  * 三处（本高度 / 底栏标签字号与行高 / 单格高度）互为一体，改任一处都要照上式重算。
  */
 const styles = StyleSheet.create({
-  tabIcon: { width: 40, height: 27, alignItems: "center", justifyContent: "center" },
+  tabIcon: { width: 40, height: 30, alignItems: "center", justifyContent: "center" },
 });
 
 export default function TabsLayout() {
@@ -221,7 +214,7 @@ export default function TabsLayout() {
         options={{
           title: "今日",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="home" outlineName="home-outline" iosFilled="house.fill" iosOutline="house" color={color} focused={focused} />
+            <TabIcon name="today" color={color} focused={focused} />
           ),
         }}
       />
@@ -231,14 +224,7 @@ export default function TabsLayout() {
           title: "学习",
           // school（学位帽）比 book 更圆润，也更贴「学习」的语义
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              name="school"
-              outlineName="school-outline"
-              iosFilled="graduationcap.fill"
-              iosOutline="graduationcap"
-              color={color}
-              focused={focused}
-            />
+            <TabIcon name="learn" color={color} focused={focused} />
           ),
         }}
       />
@@ -247,14 +233,7 @@ export default function TabsLayout() {
         options={{
           title: "职业",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              name="briefcase"
-              outlineName="briefcase-outline"
-              iosFilled="briefcase.fill"
-              iosOutline="briefcase"
-              color={color}
-              focused={focused}
-            />
+            <TabIcon name="career" color={color} focused={focused} />
           ),
         }}
       />
@@ -269,7 +248,7 @@ export default function TabsLayout() {
         options={{
           title: "成长",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="leaf" outlineName="leaf-outline" iosFilled="leaf.fill" iosOutline="leaf" color={color} focused={focused} />
+            <TabIcon name="growth" color={color} focused={focused} />
           ),
         }}
       />
@@ -279,14 +258,7 @@ export default function TabsLayout() {
           title: "我的",
           // person-circle：圆形轮廓比人形剪影更圆润，与胶囊的形态也更统一
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              name="person-circle"
-              outlineName="person-circle-outline"
-              iosFilled="person.crop.circle.fill"
-              iosOutline="person.crop.circle"
-              color={color}
-              focused={focused}
-            />
+            <TabIcon name="me" color={color} focused={focused} />
           ),
         }}
       />

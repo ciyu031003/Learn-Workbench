@@ -63,6 +63,49 @@ export type LearnContinueCard = {
   onPress: () => void;
 };
 
+/** 章节树节点状态：完成（绿）/ 在读（蓝，带光晕）/ 未开始（灰） */
+export type LearnChapterState = "done" | "now" | "todo";
+/** 节点下的知识点小圆点：已完成实心绿 / 当前蓝 / 其余灰 */
+export type LearnChapterPointState = "done" | "current" | "todo";
+
+/**
+ * 章节树节点（一个节点 = 当前阶段的一个主题）。
+ *
+ * 数据边界：roadmap 主题只有「主题级」完成态（progress[topicId].done），
+ * 没有逐知识点的完成度。所以小圆点按「练习 + 验收」条数派生数量，
+ * 状态只表达主题级进度（完成全绿 / 在读第一个蓝 / 未开始全灰），不伪造中间态。
+ */
+export type LearnChapterNode = {
+  id: number;
+  title: string;
+  state: LearnChapterState;
+  /** 一行 meta：已读完 / 在读 / 未开始 + 练习数（+ 知识点数） */
+  meta: string;
+  points: LearnChapterPointState[];
+  a11y: string;
+  /** 点击进阶段树（/phase/[id]） */
+  onPress: () => void;
+  /** 长按看主题详情（练习任务 + 阶段验收，弹层沿用既有 LearnTopicModal） */
+  onOpenDetails: () => void;
+};
+
+/** 学习舱头部（eyebrow + 两行标题 + 环 + 说明 + chips + 通栏 CTA）的展示模型 */
+export type LearnCabinModel = {
+  eyebrow: string;
+  /** 两行大标题：源标题里的「+」折成换行 + 「与」，与 demo 同断行 */
+  title: string;
+  ring: { done: number; total: number; percent: number };
+  weeksChip: string;
+  pointChip: string;
+  percentChip: string;
+  copy: string;
+  ctaLabel: string;
+  ctaA11y: string;
+  onCta: () => void;
+  onRingPress: () => void;
+  ringA11y: string;
+};
+
 /**
  * 学习页的取数 / 副作用 / 派生值 / 回调（从 app/(tabs)/learn.tsx 整段切片）。
  *
@@ -398,23 +441,6 @@ export function useLearnScreen() {
     () => customTopics.filter((t) => t.phaseId === selectedPhase?.id),
     [customTopics, selectedPhase?.id]
   );
-  const currentThemes = [
-    ...(selectedPhase?.topics ?? []),
-    ...selectedCustomTopics.map((t, ci) => ({
-      id: t.id,
-      topicKey: `lwb-custom-${ci}`,
-      title: t.title,
-      summary: t.summary,
-      agentTask: null,
-      sortOrder: 100000 + ci,
-      resources: [],
-      practices: [],
-      projects: [],
-      checkpoints: [],
-      isCustomSubject: true,
-    })),
-  ].slice(0, 4);
-
   const swapPhase = (from: number, to: number) => {
     if (to < 0 || to >= roadmap.length) return;
     const next = [...roadmap];
@@ -457,28 +483,31 @@ export function useLearnScreen() {
     setCustomPhaseSheet(true);
   };
 
+  /**
+   * 知识点详情（LearnTopicModal）的当前主题：先查当前阶段的 roadmap 主题（不再截断到 4 个），
+   * 再查自建主题。章节树可以点到任意一个主题，详情弹层因此不再受旧「只取前 4 个」的限制。
+   */
   const activeTopic = useMemo(() => {
     if (!contentTopic) return null;
-    const topic = currentThemes.find(
-      (t) => t.id === contentTopic.topicId && ("isCustomSubject" in t === false)
-    );
+    const topic = (selectedPhase?.topics ?? []).find((t) => t.id === contentTopic.topicId);
     if (topic) return topic;
-    const custom = selectedCustomTopics.find((t) => t.id === contentTopic.topicId);
-    if (!custom) return null;
+    const customIndex = selectedCustomTopics.findIndex((t) => t.id === contentTopic.topicId);
+    if (customIndex < 0) return null;
+    const custom = selectedCustomTopics[customIndex];
     return {
       id: custom.id,
-      topicKey: `lwb-custom-${selectedCustomTopics.indexOf(custom)}`,
+      topicKey: `lwb-custom-${customIndex}`,
       title: custom.title,
       summary: custom.summary,
       agentTask: null,
-      sortOrder: 100000 + selectedCustomTopics.indexOf(custom),
+      sortOrder: 100000 + customIndex,
       resources: [],
       practices: [],
       projects: [],
       checkpoints: [],
       isCustomSubject: true,
     };
-  }, [contentTopic, currentThemes, selectedCustomTopics]);
+  }, [contentTopic, selectedPhase, selectedCustomTopics]);
 
   const submitCustomTopic = () => {
     const title = customTopicTitle.trim();
@@ -574,6 +603,118 @@ export function useLearnScreen() {
     };
   })();
 
+  /* ==================================================================== *
+   * v7 学习舱：头部 / 章节树 / 节律 / 管理的展示模型
+   * 全部从既有数据派生（roadmap + progress + sessions + learningAttempts），不新增接口。
+   * ==================================================================== */
+
+  /** 当前阶段「知识点」数：主题下的练习 + 验收条数（roadmap 数据里可数的具体掌握点） */
+  const phasePointCount = useMemo(
+    () =>
+      (selectedPhase?.topics ?? []).reduce(
+        (total, topic) => total + (topic.practices?.length ?? 0) + (topic.checkpoints?.length ?? 0),
+        0
+      ),
+    [selectedPhase]
+  );
+
+  /** 学习舱头部模型 */
+  const cabin = useMemo<LearnCabinModel>(() => {
+    const topics = selectedPhase?.topics ?? [];
+    const done = topics.filter((topic) => progress[topic.id]?.done).length;
+    const percent = topics.length > 0 ? pct(done, topics.length) : 0;
+    const firstUndone = topics.findIndex((topic) => !progress[topic.id]?.done);
+    /** 「第 N 节」= 第一个还没完成的主题（全完成时停在 1，按钮文案不会变成 0） */
+    const sectionNumber = firstUndone >= 0 ? firstUndone + 1 : 1;
+    /** 没有阶段时用 demo 的静态兜底标题（纯装饰文案，不顶替真实数据） */
+    const rawTitle = selectedPhase?.title?.trim() || "学习机制 + Agent 启蒙";
+    return {
+      eyebrow: selectedPhase ? "LEARNING CABIN · P" + currentPhaseNumber : "LEARNING CABIN",
+      title: rawTitle.replace(/\s*\+\s*/g, "\n与 "),
+      ring: { done, total: topics.length, percent },
+      weeksChip: selectedPhase?.weeks?.trim() || "周期未定",
+      pointChip: phasePointCount + " 知识点",
+      percentChip: "已完成 " + percent + "%",
+      copy: selectedPhase?.summary?.trim() || "从「怎么学」开始：理解学习机制，再把重复动作交给 Agent。",
+      ctaLabel: "继续学习 · 第 " + sectionNumber + " 节",
+      ctaA11y: "继续学习，从第 " + sectionNumber + " 节开始",
+      onCta: continueCard.onPress,
+      onRingPress: () => router.push("/roadmap" as never),
+      ringA11y:
+        "当前阶段已完成 " + done + " / " + topics.length + " 个主题，打开阶段路线",
+    };
+  }, [selectedPhase, progress, currentPhaseNumber, phasePointCount, continueCard]);
+
+  /** 章节树节点：当前阶段的主题（roadmap） + 本阶段自建主题 */
+  const chapterNodes = useMemo<LearnChapterNode[]>(() => {
+    const phaseId = selectedPhase?.id ?? 0;
+    const topics = selectedPhase?.topics ?? [];
+    const firstUndone = topics.findIndex((topic) => !progress[topic.id]?.done);
+    const nodes: LearnChapterNode[] = topics.map((topic, index) => {
+      const isDone = Boolean(progress[topic.id]?.done);
+      const state: LearnChapterState = isDone ? "done" : index === firstUndone ? "now" : "todo";
+      const practiceCount = topic.practices?.length ?? 0;
+      const pointTotal = practiceCount + (topic.checkpoints?.length ?? 0);
+      const points: LearnChapterPointState[] = [];
+      for (let i = 0; i < Math.min(6, pointTotal); i += 1) {
+        points.push(isDone ? "done" : state === "now" && i === 0 ? "current" : "todo");
+      }
+      const meta =
+        state === "done"
+          ? "已读完 · " + practiceCount + " 道练习"
+          : state === "now"
+            ? "在读 · " + practiceCount + " 道练习" + (pointTotal > 0 ? " · " + pointTotal + " 知识点" : "")
+            : "未开始 · " + practiceCount + " 道练习";
+      return {
+        id: topic.id,
+        title: topic.title,
+        state,
+        meta,
+        points,
+        a11y: "主题 " + (index + 1) + "，" + topic.title + "，" + meta + "，打开阶段树",
+        onPress: () => router.push(("/phase/" + phaseId) as never),
+        onOpenDetails: () => setContentTopic({ topicId: topic.id, phaseId }),
+      };
+    });
+    selectedCustomTopics.forEach((topic, index) => {
+      nodes.push({
+        id: topic.id,
+        title: topic.title,
+        state: progress[topic.id]?.done ? "done" : "todo",
+        meta: "自建主题" + (topic.summary ? " · " + topic.summary : ""),
+        points: [],
+        a11y: "自建主题 " + (index + 1) + "，" + topic.title + "，打开阶段树",
+        onPress: () => router.push(("/phase/" + phaseId) as never),
+        onOpenDetails: () => setContentTopic({ topicId: topic.id, phaseId }),
+      });
+    });
+    return nodes;
+  }, [selectedPhase, progress, selectedCustomTopics]);
+
+  /** 章节树右上的 meta：N 主题 · M 知识点 */
+  const chapterMeta = (selectedPhase?.topics?.length ?? 0) + " 主题 · " + phasePointCount + " 知识点";
+
+  /** 学习节律的星期标签：真实周几 + 今天用「今」（demo 同款） */
+  const rhythmLabels = useMemo(
+    () => last7Labels.map((label, index) => (index === last7Labels.length - 1 ? "今" : label)),
+    [last7Labels]
+  );
+
+  /** 管理入口（沿用既有弹层：新建阶段 / 导入 Markdown） */
+  const openCreatePhase = useCallback(() => {
+    setEditingPhase(null);
+    setCustomPhaseTitle("");
+    setCustomPhaseSummary("");
+    setCustomPhaseSheet(true);
+  }, []);
+
+  const openImportMd = useCallback(() => {
+    setMdText("");
+    setMdPreview(null);
+    setMdMsg(null);
+    setMdSheet(true);
+  }, []);
+
   /** 页面模型：派生数据 + 状态 + 回调，交给 learn.tsx 与各区块组件显式接收。 */
   return {
     colors,
@@ -612,6 +753,14 @@ export function useLearnScreen() {
     exam408ChapterCount,
     exam408PointCount,
     practiceAccuracy,
+    /* v7 学习舱：头部 / 章节树 / 学习节律 的展示模型 */
+    cabin,
+    chapterNodes,
+    chapterMeta,
+    phasePointCount,
+    rhythmLabels,
+    openCreatePhase,
+    openImportMd,
     /* ⑥ 学习架（默认折叠）与管理入口 */
     shelfOpen,
     setShelfOpen,

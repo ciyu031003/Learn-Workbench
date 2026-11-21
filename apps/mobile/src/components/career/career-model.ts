@@ -1,18 +1,16 @@
-import type { Ionicons } from "@expo/vector-icons";
-import { formatRelativeTime } from "@learn-workbench/shared/dates";
-import type { CareerReadiness, JobStats, ReadinessDimension, UserSkillView } from "@learn-workbench/shared/schemas";
-
-import type { ThemeColors } from "@/theme/tokens";
-
-import type { CareerDeadlineItem } from "./career-decision-cards";
+import type { CareerReadiness, ReadinessDimension, UserSkillView } from "@learn-workbench/shared/schemas";
 
 /**
- * 职业页纯数据层（从 app/(tabs)/career.tsx 搬出）：常量、行规格、以及
- * CareerReadiness / 投递漏斗 / 技能差距 / 岗位雷达的纯派生函数。
+ * 职业页纯数据层（V7 决策工作台）。
  *
  * 纪律：这里只有「输入 → 输出」的纯函数，不引用 React、不读 store、不发请求；
- * 取数与副作用全部在 use-career-screen.ts。函数体与拆分前逐行一致（含三元的先后顺序），
- * 保证文案、单位、兜底值、无障碍标签都不变。
+ * 取数与副作用全部在 use-career-screen.ts，视图只在 components/career/ 下。
+ *
+ * V7 重构后，页面从「岗位列表 + 准备度墙」改成 6 个决策区块：
+ * 目标方向（NorthStar）/ 岗位决策矩阵 / 技能缺口 / 投递漏斗 / 本周行动 / 决策日志。
+ * 所有展示值都从既有接口派生（radar counts+top、readiness、user skills、applications 汇总），
+ * 没有数据的维度一律显示「—」，绝不用估算值或 mock 常量冒充真实数据；
+ * 只有纯装饰性文案（决策日志的叙述、本周行动的标题）是静态的。
  */
 
 export const RADAR_FETCH_LIMIT = 200;
@@ -42,15 +40,15 @@ export const DIMENSION_AXIS_LABELS: Record<ReadinessDimension["key"], string> = 
   interview: "面试",
 };
 
-export type ToolTone = "primary" | "teal" | "success" | "accent";
-export const TOOL_TONES: Record<ToolTone, { soft: keyof ThemeColors; strong: keyof ThemeColors }> = {
-  primary: { soft: "primarySoft", strong: "primary" },
-  teal: { soft: "surfaceMuted", strong: "teal" },
-  success: { soft: "successSoft", strong: "success" },
-  accent: { soft: "accentSoft", strong: "accent" },
-};
-
+/** 技能画像是「补齐到 Lv3」为达标口径 */
 export const SKILL_GAP_LEVEL = 3;
+
+/** 岗位决策矩阵：高匹配 / 中匹配分档（与 radar 的 HIGH_MATCH_MIN=75 对齐） */
+export const DECISION_MATCH_HIGH = 75;
+export const DECISION_MATCH_MID = 65;
+
+/** 目标方向的兜底文案（画像为空时；纯装饰，真实值优先） */
+export const DIRECTION_FALLBACK_TITLE = "前端 / 全栈 · 乌鲁木齐";
 
 /** 岗位雷达响应（与 apps/web/app/api/jobs/radar 的实际返回一致：hasProfile / counts / top） */
 export interface RadarJobLite {
@@ -60,25 +58,29 @@ export interface RadarJobLite {
   deadlineLabel: string | null;
   gapHours?: number;
   missingSkills?: { skill: string }[];
+  /** 以下字段由 /api/jobs/radar 的 top[] 真实返回（兜底路径可能缺省） */
+  city?: string;
+  salaryText?: string;
+  salaryBand?: string;
+  overall?: number;
+  matchedSkills?: { skill: string }[];
 }
 
 export interface RadarSummary {
   hasProfile: boolean;
   total?: number;
+  profileCity?: string | null;
+  targetRole?: string | null;
   counts?: { candidates?: number; matched?: number; favorites?: number; applications?: number };
   top?: RadarJobLite[];
 }
 
-/** 一行入口（求职工具 / 更多入口 / 分析工具的公共规格） */
-export interface EntryRowSpec {
+/** 即将截止的一条（服务端已按天算好 deadlineLabel） */
+export interface CareerDeadlineItem {
   key: string;
   title: string;
-  subtitle?: string;
-  end?: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  tone: ToolTone;
-  href: string;
-  accessibilityLabel: string;
+  company: string;
+  deadlineLabel: string;
 }
 
 /** 准备度四维（DIMENSION_KEYS 顺序固定，缺项补 0） */
@@ -105,6 +107,80 @@ export interface CareerSkillGapItem {
   hint: string;
   color: string;
 }
+
+/* ================= V7 · 决策工作台模型 ================= */
+
+/** 目标方向卡里的一条细进度条 */
+export interface CareerDirectionBar {
+  key: string;
+  label: string;
+  /** 0..1，0 表示没有任何可比数据（条子空着，右侧显示「—」） */
+  ratio: number;
+  valueLabel: string;
+}
+
+/** ① 目标方向卡 */
+export interface CareerDirection {
+  title: string;
+  hasTarget: boolean;
+  /** 方向匹配度 0-100；没有任何可比数据时为 null（显示「—」） */
+  fitScore: number | null;
+  bars: CareerDirectionBar[];
+  hint: string;
+}
+
+/** ② 岗位决策矩阵一行 */
+export interface CareerDecisionRow {
+  key: string;
+  jobId: number;
+  title: string;
+  company: string;
+  salary: string;
+  match: number;
+  matchTone: "hi" | "mid" | "lo";
+  growth: { label: string; tone: "hi" | "mid" | "warn" };
+  deadline: string;
+}
+
+/** ③ 技能缺口一条 */
+export interface CareerGapBar {
+  key: string;
+  label: string;
+  level: number;
+  targetLevel: number;
+  /** level / targetLevel，0..1 */
+  ratio: number;
+  valueLabel: string;
+}
+
+/** ④ 投递漏斗一级（V7：收藏 / 已投 / 笔试 / 面试 / Offer 五级） */
+export interface CareerFunnelRow {
+  key: string;
+  label: string;
+  count: number | null;
+  /** 相对最大一级的占比 0-100（纯视觉） */
+  widthPct: number;
+  /** 相对上一级的转化率文案 */
+  rateLabel: string;
+}
+
+/** ⑤ 本周行动一条 */
+export interface CareerWeekAction {
+  key: string;
+  title: string;
+  detail: string;
+}
+
+/** ⑥ 决策日志一条（一句话里有一段需要强调的实体） */
+export interface CareerLogItem {
+  key: string;
+  date: string;
+  prefix: string;
+  highlight: string;
+  suffix: string;
+}
+
+/* ================= 既有纯函数（保持原行为，单测锁定） ================= */
 
 export function resolveStageIndex(stats: Record<string, number> | null): number {
   if (!stats) return 0;
@@ -246,110 +322,278 @@ export function buildSubtitle(todayCount: number | null, highMatchCount: number 
     : "岗位抓取、准备度与投递进度集中在这里。";
 }
 
-/** 「求职准备」三行：面试题库 / 简历与附件 / 证书 */
-export function buildPrepRows({
-  interviewDetail,
-  resumeScore,
-}: {
-  interviewDetail: string;
-  resumeScore: number;
-}): EntryRowSpec[] {
-  const resumeMissingKinds = countResumeMissingKinds(resumeScore);
-  return [
-    {
-      key: "interview",
-      title: "面试题库",
-      subtitle: interviewDetail || "题库 · 模拟面试",
-      end: "去练习",
-      icon: "chatbubbles-outline",
-      tone: "primary",
-      href: "/interview",
-      accessibilityLabel: "面试题库，打开面试页",
-    },
-    {
-      key: "resume",
-      title: "简历与附件",
-      subtitle: resumeScore >= 100 ? "四类资产齐全" : "还缺 " + resumeMissingKinds + " 类资产",
-      end: resumeScore + "%",
-      icon: "document-text-outline",
-      tone: "success",
-      href: "/resume",
-      accessibilityLabel: "简历与附件，完成度 " + resumeScore + "%，打开简历页",
-    },
-    {
-      key: "certificates",
-      title: "证书",
-      subtitle: "证书 · 有效期提醒",
-      end: "查看",
-      icon: "ribbon-outline",
-      tone: "teal",
-      href: "/certificates",
-      accessibilityLabel: "证书与有效期，打开证书页",
-    },
-  ];
-}
+/* ================= V7 · 决策工作台的纯派生 ================= */
 
-/** 「更多入口」三行：我的投递 / 岗位雷达 / 岗位抓取记录 */
-export function buildMoreRows({
-  applicationStateText,
-  activeApplications,
-  matchedJobs,
-  jobStats,
-}: {
-  applicationStateText: string;
-  activeApplications: number | null;
-  matchedJobs: number;
-  jobStats: JobStats | null;
-}): EntryRowSpec[] {
-  return [
-    {
-      key: "applications",
-      title: "我的投递",
-      subtitle: applicationStateText,
-      end: activeApplications !== null && activeApplications > 0 ? activeApplications + " 个" : "—",
-      icon: "briefcase-outline",
-      tone: "accent",
-      href: "/applications",
-      accessibilityLabel: "我的投递，" + applicationStateText + "，打开投递页",
-    },
-    {
-      key: "radar",
-      title: "岗位雷达",
-      subtitle: "匹配度 · 城市 / 薪资筛选",
-      end: matchedJobs > 0 ? matchedJobs + " 个" : "—",
-      icon: "radio-outline",
-      tone: "primary",
-      href: "/radar",
-      accessibilityLabel: "岗位雷达，打开匹配岗位页",
-    },
-    {
-      key: "crawl",
-      title: "岗位抓取记录",
-      subtitle: jobStats ? "今日新增 " + jobStats.todayNew + " · " + jobStats.platformCount + " 个平台" : "抓取状态与岗位来源",
-      end: jobStats?.lastRun ? formatRelativeTime(jobStats.lastRun) : "—",
-      icon: "refresh",
-      tone: "success",
-      href: "/jobs",
-      accessibilityLabel: "岗位抓取记录，打开招花",
-    },
-  ];
+/** 截止文案压缩成矩阵里的短标签：「21 天后截止」→「21d」，「今日截止」→「今日」 */
+export function formatDeadlineShort(label: string | null | undefined): string {
+  const text = (label ?? "").trim();
+  if (!text) return "—";
+  const days = text.match(/(\d+)\s*天/);
+  if (days) return days[1] + "d";
+  if (text.includes("今日") || text.includes("今天")) return "今日";
+  return text.replace(/截止$/, "");
 }
 
 /**
- * P3 降级：市场分析从「更多入口」主列表移到独立的「分析工具（仅参考）」分组，
- * 不再与求职动线并列 —— 它是参考数据，不是下一步动作。
+ * 薪资带 → 0..1 的匹配强度（纯视觉条宽度）。
+ * 口径：取薪资区间上沿 / 16K（8–12K → 0.75，与 demo 的 74% 一致），20K 以上封顶。
+ * 「面议」「薪资未知」等无数值文案返回 0。
  */
-export function buildAnalysisRows(): EntryRowSpec[] {
+export function salaryBandRatio(value: string | null | undefined): number {
+  const text = (value ?? "").trim();
+  if (!text) return 0;
+  const numbers = text.match(/\d+(?:\.\d+)?/g);
+  if (!numbers || numbers.length === 0) return 0;
+  const max = Math.max(...numbers.map((item) => Number(item)));
+  if (!Number.isFinite(max) || max <= 0) return 0;
+  return Math.max(0, Math.min(1, max / 16));
+}
+
+/** 匹配度 → 徽章档位：绿 ≥75 / 蓝 ≥65 / 灰 <65 */
+export function resolveMatchTone(score: number): "hi" | "mid" | "lo" {
+  if (!Number.isFinite(score)) return "lo";
+  if (score >= DECISION_MATCH_HIGH) return "hi";
+  if (score >= DECISION_MATCH_MID) return "mid";
+  return "lo";
+}
+
+/**
+ * ① 目标方向：标题由「目标岗位 · 城市」派生（radar 优先，其次 readiness），
+ * 匹配度取 top 前 4 个岗位 overall 的均值（无岗位分时回落准备度），
+ * 三条细进度条分别是「技能命中 / 薪资匹配 / 城市一致」。
+ */
+export function buildDirection({
+  radar,
+  readiness,
+  skills,
+}: {
+  radar: RadarSummary | null;
+  readiness: CareerReadiness | null;
+  skills: UserSkillView[];
+}): CareerDirection {
+  const radarTarget = (radar?.targetRole ?? "").trim();
+  const readinessTarget = (readiness?.targetRole ?? "").trim();
+  const targetRole = radarTarget || readinessTarget;
+  const city = (radar?.profileCity ?? "").trim();
+  const title = [targetRole, city].filter(Boolean).join(" · ") || DIRECTION_FALLBACK_TITLE;
+  const hasTarget = Boolean(radar?.hasProfile || readinessTarget);
+  const top = radar?.top ?? [];
+
+  const scored = top
+    .slice(0, 4)
+    .map((job) => (typeof job.overall === "number" ? job.overall : NaN))
+    .filter((score) => Number.isFinite(score) && score > 0);
+  const fitScore = hasTarget
+    ? scored.length > 0
+      ? Math.round(scored.reduce((sum, score) => sum + score, 0) / scored.length)
+      : readiness
+        ? Math.round(readiness.overall)
+        : null
+    : null;
+
+  const lead = top[0];
+  const matched = lead?.matchedSkills?.length ?? 0;
+  const missing = lead?.missingSkills?.length ?? 0;
+  let skillRatio = 0;
+  let skillLabel = "—";
+  if (matched + missing > 0) {
+    skillRatio = matched / (matched + missing);
+    skillLabel = matched + "/" + (matched + missing);
+  } else if (skills.length > 0) {
+    const hit = skills.filter((skill) => skill.level >= 2).length;
+    skillRatio = hit / skills.length;
+    skillLabel = hit + "/" + skills.length;
+  }
+
+  const salaryText = (lead?.salaryText || lead?.salaryBand || "").trim();
+  const salaryRatio = salaryText ? salaryBandRatio(lead?.salaryBand || salaryText) : 0;
+
+  const cityMatch = city && lead?.city ? lead.city === city : null;
+  const hint = !hasTarget
+    ? "先设置目标方向与期望城市，匹配度才有意义"
+    : top.length === 0
+      ? "暂无匹配岗位 · 去招花补齐岗位库"
+      : "按前 " + Math.min(top.length, 4) + " 个匹配岗位估算";
+
+  return {
+    title,
+    hasTarget,
+    fitScore,
+    hint,
+    bars: [
+      { key: "skill", label: "技能命中", ratio: skillRatio, valueLabel: skillLabel },
+      { key: "salary", label: "薪资匹配", ratio: salaryRatio, valueLabel: salaryText || "—" },
+      {
+        key: "city",
+        label: "城市一致",
+        ratio: cityMatch === null ? 0 : cityMatch ? 1 : 0,
+        valueLabel: cityMatch === null ? "—" : cityMatch ? "是" : "否",
+      },
+    ],
+  };
+}
+
+/** ② 岗位决策矩阵：radar.top 前 4 个（服务端已按匹配度倒序） */
+export function buildDecisionRows(radarTop: RadarJobLite[]): CareerDecisionRow[] {
+  return radarTop.slice(0, 4).map((job) => {
+    const score = typeof job.overall === "number" && Number.isFinite(job.overall) ? Math.round(job.overall) : 0;
+    const gapCount = job.missingSkills?.length ?? 0;
+    const growth: CareerDecisionRow["growth"] =
+      gapCount >= 3 ? { label: "高", tone: "warn" } : gapCount >= 1 ? { label: "中", tone: "mid" } : { label: "稳", tone: "hi" };
+    return {
+      key: String(job.jobId),
+      jobId: job.jobId,
+      title: job.title,
+      company: job.company,
+      salary: (job.salaryText || job.salaryBand || "").trim() || "—",
+      match: score,
+      matchTone: resolveMatchTone(score),
+      growth,
+      deadline: formatDeadlineShort(job.deadlineLabel),
+    };
+  });
+}
+
+/** ③ 技能缺口：技能画像里 level < 3 的前 3 条；画像为空时回落岗位雷达的 missingSkills */
+export function buildGapBars(skills: UserSkillView[], fallbackNames: string[]): CareerGapBar[] {
+  const fromSkills = skills
+    .filter((skill) => skill.level < SKILL_GAP_LEVEL)
+    .slice()
+    .sort((a, b) => (a.level !== b.level ? a.level - b.level : a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .slice(0, 3)
+    .map((skill) => ({
+      key: String(skill.id),
+      label: skill.name,
+      level: skill.level,
+      targetLevel: SKILL_GAP_LEVEL,
+      ratio: Math.max(0, Math.min(1, skill.level / SKILL_GAP_LEVEL)),
+      valueLabel: "Lv" + skill.level + " → Lv" + SKILL_GAP_LEVEL,
+    }));
+  if (fromSkills.length > 0) return fromSkills;
+  return fallbackNames.slice(0, 3).map((name, index) => ({
+    key: "missing-" + index + "-" + name,
+    label: name,
+    level: 0,
+    targetLevel: SKILL_GAP_LEVEL,
+    ratio: 0,
+    valueLabel: "Lv0 → Lv" + SKILL_GAP_LEVEL,
+  }));
+}
+
+/** ④ 投递漏斗五级：收藏 / 已投 / 笔试 / 面试 / Offer（阶段为「累计到该阶段」，不是单阶段） */
+export function buildCareerFunnel(appStats: Record<string, number> | null): CareerFunnelRow[] {
+  const rows: { key: string; label: string; count: number | null }[] = [
+    { key: "favorite", label: "收藏", count: countStages(appStats, ["favorite", "ready"]) },
+    { key: "applied", label: "已投", count: countStages(appStats, ["applied", "online_test", "interview1", "interview2", "offer", "hired", "closed"]) },
+    { key: "test", label: "笔试", count: countStages(appStats, ["online_test", "interview1", "interview2", "offer", "hired", "closed"]) },
+    { key: "interview", label: "面试", count: countStages(appStats, ["interview1", "interview2", "offer", "hired", "closed"]) },
+    { key: "offer", label: "Offer", count: countStages(appStats, ["offer", "hired"]) },
+  ];
+  const max = rows.reduce((top, row) => Math.max(top, row.count ?? 0), 0);
+  return rows.map((row, index) => {
+    const previous = index > 0 ? rows[index - 1].count : null;
+    const count = row.count;
+    /**
+     * 转化率只对「同一批投递里逐级累计」的 笔试 / 面试 / Offer 有意义。
+     * 收藏 → 已投 不是漏斗上下级（收藏转化后就不再停在收藏），硬算会出现 >100% 的假转化率。
+     */
+    const rateLabel =
+      index < 2 || previous === null || count === null || previous <= 0
+        ? "—"
+        : Math.round((count / previous) * 100) + "%";
+    const widthPct = max > 0 && count !== null ? Math.max(count > 0 ? 4 : 0, Math.round((count / max) * 100)) : 0;
+    return { ...row, widthPct, rateLabel };
+  });
+}
+
+/** ⑤ 本周行动：标题是产品叙事（静态），副文案尽量用真实数据（截止 / 缺口 / 简历完成度） */
+export function buildWeekActions({
+  matchedCount,
+  deadlines,
+  gapBars,
+  gapHours,
+  resumeScore,
+  hasReadiness,
+}: {
+  matchedCount: number | null;
+  deadlines: CareerDeadlineItem[];
+  gapBars: CareerGapBar[];
+  gapHours: number;
+  resumeScore: number;
+  hasReadiness: boolean;
+}): CareerWeekAction[] {
+  const deadline = deadlines[0];
+  const gap = gapBars[0];
   return [
     {
-      key: "market",
-      title: "市场分析",
-      subtitle: "城市 · 薪资 · 技能热度（参考）",
-      end: "参考",
-      icon: "trending-up-outline",
-      tone: "teal",
-      href: "/market",
-      accessibilityLabel: "市场分析，打开市场页（参考数据）",
+      key: "apply",
+      title: "投递 3 个高匹配岗位",
+      detail: deadline
+        ? "优先 " + deadline.title + "（" + deadline.deadlineLabel + "）"
+        : matchedCount !== null && matchedCount > 0
+          ? "当前 " + matchedCount + " 个高匹配，先挑 3 个"
+          : "先去招花挑 3 个匹配岗位",
+    },
+    {
+      key: "skill",
+      title: gap ? "补 " + gap.label + " 到 Lv" + gap.targetLevel : "把技能画像补到 Lv3",
+      detail: gap
+        ? gapHours > 0
+          ? "约 " + gapHours + " 小时 · 用题库 + 一个最小项目"
+          : "从题库开始，先懂再练"
+        : "技能画像里暂无缺口，保持节奏",
+    },
+    {
+      key: "resume",
+      title: "简历补 1 类资产",
+      detail: hasReadiness
+        ? "当前 " + resumeScore + "% · 还缺 " + countResumeMissingKinds(resumeScore) + " 类"
+        : "登录后显示简历完成度",
+    },
+  ];
+}
+
+function pad2(value: number): string {
+  return value < 10 ? "0" + value : String(value);
+}
+
+function formatMonthDay(date: Date): string {
+  return pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+}
+
+function daysAgo(now: Date, days: number): Date {
+  const date = new Date(now.getTime());
+  date.setDate(date.getDate() - days);
+  return date;
+}
+
+/**
+ * ⑥ 决策日志：产品叙事（静态文案），日期按「今天往前推」生成，
+ * 第三条的目标方向用真实画像值（radar.targetRole / readiness.targetRole），没有则用兜底。
+ */
+export function buildDecisionLog(now: Date, targetLabel: string): CareerLogItem[] {
+  const title = targetLabel.trim() || DIRECTION_FALLBACK_TITLE;
+  return [
+    {
+      key: "log-1",
+      date: formatMonthDay(daysAgo(now, 2)),
+      prefix: "放弃 ",
+      highlight: "远程实习",
+      suffix: "：薪资低于期望，且成长上限低。",
+    },
+    {
+      key: "log-2",
+      date: formatMonthDay(daysAgo(now, 4)),
+      prefix: "加入收藏 ",
+      highlight: "Web 前端（远程）",
+      suffix: "：先确认远程协作时区。",
+    },
+    {
+      key: "log-3",
+      date: formatMonthDay(daysAgo(now, 6)),
+      prefix: "把目标方向改为 ",
+      highlight: title,
+      suffix: "。",
     },
   ];
 }
