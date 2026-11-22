@@ -195,7 +195,12 @@ export default function TodayScreen() {
         />
 
         {/* 今日习惯：紧凑一行标签，替代旧的三列瓦片 */}
-        <TodayHabitLine habits={habitOnlyRows} onToggleHabit={toggleHabit} />
+        <TodayHabitLine
+          habits={habitOnlyRows}
+          onToggleHabit={toggleHabit}
+          fireBurst={fireBurst}
+          onPlanProgress={() => maybeCelebratePlan(todayDone, Math.max(0, pendingHabits - 1))}
+        />
 
         {/* 夜间回顾占位（21:00 解锁） */}
         <TodayNightReview />

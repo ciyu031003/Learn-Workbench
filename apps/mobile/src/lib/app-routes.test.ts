@@ -22,6 +22,7 @@ import path from "node:path";
  *   /exam-408-card /exam-408-question（P3-1 新增：408 速记卡 / 真题详情页）
  *   /exam-408-paper-history（P3-2 新增：408 套卷历史成绩页）
  *   /job-detail /jobs-favorites（P3-3A 新增：岗位详情页 / 我的收藏）
+ *   /growth-insights（2026-11 新增：成长页重构，五个数据模块整块搬到「数据看板」二级页）
  *
  * 若以后真的要新增/删除页面，改这里即等于显式声明"路由表变了"。
  */
@@ -36,6 +37,7 @@ const EXPECTED_ROUTES = [
   "/dashboard",
   "/diagnostics",
   "/domain-manager",
+  "/growth-insights",
   "/exam-408",
   // P3-1：408 速记卡详情 / 真题详情（搜索与知识点页命中后进入）
   "/exam-408-card",

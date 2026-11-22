@@ -17,9 +17,15 @@ import type { TodayHabitRow } from "./use-today-screen";
 export function TodayHabitLine({
   habits,
   onToggleHabit,
+  fireBurst,
+  onPlanProgress,
 }: {
   habits: TodayHabitRow[];
   onToggleHabit: (id: number, done: boolean) => void;
+  /** 打卡成功时的轻庆祝（V7 重构时丢了，2.8.1 还原） */
+  fireBurst?: (kicker: string, title: string, subtitle?: string) => void;
+  /** 打卡后重新评估「今日计划是否全部完成」，用于弹出全屏庆祝 */
+  onPlanProgress?: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -42,6 +48,11 @@ export function TodayHabitLine({
             key={habit.id}
             hitSlop={6}
             onPress={() => {
+              // 与改版前的三列习惯瓦片保持一致：只有「从未完成→完成」才庆祝，取消勾选不打扰
+              if (!habit.done) {
+                fireBurst?.("习惯打卡", habit.name, "今天的习惯又稳了一项");
+                onPlanProgress?.();
+              }
               haptics.light();
               onToggleHabit(habit.id, habit.done);
             }}
