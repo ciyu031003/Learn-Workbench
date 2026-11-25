@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Celebration } from "@/components/celebration";
+import { AwardCard3D, type AwardCardData } from "@/components/award-card-3d";
 import type { CelebrationTone } from "@/lib/celebration-copy";
 import { TOTAL_MS } from "@/lib/celebration-particles";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -53,6 +54,7 @@ export function CelebrationModal({
   kicker,
   buttonText,
   imageSource,
+  award,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -70,6 +72,8 @@ export function CelebrationModal({
   buttonText?: string;
   /** 主视觉；默认用本地打包的 3D 完成 GIF */
   imageSource?: ImageSourcePropType;
+  /** 传入后展示 3D 金属庆祝卡（阶段 / 一本书 / 一轮刷题完成） */
+  award?: AwardCardData;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -145,29 +149,40 @@ export function CelebrationModal({
           </Animated.View>
 
           <Text style={styles.kicker}>{kicker ?? tone?.kicker ?? "恭喜完成"}</Text>
-          <Animated.View style={[styles.hero, badgeStyle]}>
-            <Image
-              source={imageSource ?? CELEBRATION_GIF}
-              style={styles.heroImage}
-              contentFit="contain"
-              autoplay={motionActive}
-              transition={0}
-              cachePolicy="memory-disk"
-              accessibilityIgnoresInvertColors
-              accessibilityLabel="庆祝表情"
-            />
-            {badge ? (
-              <View style={[styles.badgeChip, tone ? { backgroundColor: tone.badgeColor } : null]}>
-                <Text style={styles.badgeChipText}>{badge}</Text>
-              </View>
-            ) : null}
-          </Animated.View>
+          {award ? (
+            <View style={styles.awardWrap}>
+              <AwardCard3D data={award} />
+            </View>
+          ) : (
+            <Animated.View style={[styles.hero, badgeStyle]}>
+              <Image
+                source={imageSource ?? CELEBRATION_GIF}
+                style={styles.heroImage}
+                contentFit="contain"
+                autoplay={motionActive}
+                transition={0}
+                cachePolicy="memory-disk"
+                accessibilityIgnoresInvertColors
+                accessibilityLabel="庆祝表情"
+              />
+              {badge ? (
+                <View style={[styles.badgeChip, tone ? { backgroundColor: tone.badgeColor } : null]}>
+                  <Text style={styles.badgeChipText}>{badge}</Text>
+                </View>
+              ) : null}
+            </Animated.View>
+
+          )}
           {tone || !kicker ? (
             <Text style={styles.resultLabel}>{tone?.resultLabel ?? "又向前一步"}</Text>
           ) : null}
 
-          <Text style={styles.title} numberOfLines={2}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
+          {award ? null : (
+            <>
+              <Text style={styles.title} numberOfLines={2}>{title}</Text>
+              {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
+            </>
+          )}
 
           <Pressable
             style={styles.btn}
@@ -228,6 +243,7 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: "rgba(255,255,255,0.5)",
     },
     kicker: { ...typography.micro, fontWeight: "800", color: "rgba(255,255,255,0.72)", letterSpacing: 2 },
+    awardWrap: { alignItems: "center", marginVertical: 10 },
     hero: {
       width: 156,
       height: 156,

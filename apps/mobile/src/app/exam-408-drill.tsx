@@ -1210,6 +1210,14 @@ export default function Exam408DrillScreen() {
         kicker={celebrationRequest?.kicker}
         buttonText={celebrationRequest?.buttonText}
         tone={celebrationRequest?.tone}
+        award={celebrationRequest ? {
+          title: celebrationRequest.title,
+          subtitle: celebrationRequest.subtitle,
+          dateText: new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }),
+          accuracy: board.today.accuracy,
+          reviewed: board.today.done,
+          serial: "LW-" + new Date().toISOString().slice(5, 10).replace("-", ""),
+        } : undefined}
       />
     </View>
   );

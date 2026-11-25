@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -11,10 +11,12 @@ import { GrowthSportsCardEntry, GrowthTrackersEntry } from "@/components/growth/
 import { GrowthInsightsSkeleton } from "@/components/growth/growth-skeleton";
 import { GrowthReveal } from "@/components/growth/growth-reveal";
 import { GrowthTodayRecords } from "@/components/growth/growth-records";
+import { HealthPrintShare } from "@/components/growth/health-print-share";
 import { GrowthTrends } from "@/components/growth/growth-trends";
 import { GrowthWeight } from "@/components/growth/growth-weight";
 import { useGrowthData } from "@/components/growth/use-growth-data";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
@@ -42,6 +44,7 @@ export default function GrowthInsightsScreen() {
   const headerScroll = useLargeTitleHeader();
   /** 子页盖住底栏，只留安全区（useTabBarSpace 按路由自适应） */
   const tabBarSpace = useTabBarSpace();
+  const [printOpen, setPrintOpen] = useState(false);
 
   return (
     <View style={styles.root}>
@@ -104,8 +107,31 @@ export default function GrowthInsightsScreen() {
               <GrowthSportsCardEntry />
             </GrowthReveal>
 
-            <SectionTitle title="今日记录" right={<Text style={styles.sectionMeta}>最近记录</Text>} />
+            <SectionTitle title="分享卡片" right={<Text style={styles.sectionMeta}>睡眠 / 饮食 / 训练 / 饮水</Text>} />
             <GrowthReveal index={5}>
+              <PressableScale
+                onPress={() => {
+                  haptics.soft();
+                  setPrintOpen(true);
+                }}
+                scaleTo={0.98}
+                style={styles.shareCard}
+                accessibilityRole="button"
+                accessibilityLabel="打开健康打印分享卡"
+              >
+                <View style={styles.shareIcon}>
+                  <ThemedIcon name="sparkles-outline" size={18} color={colors.primary} />
+                </View>
+                <View style={styles.shareTextBox}>
+                  <Text style={styles.shareTitle}>健康打印卡</Text>
+                  <Text style={styles.shareSub}>四项数据打印成一张纸 · 底部带专属条形码</Text>
+                </View>
+                <ThemedIcon name="chevron-forward" size={14} color={colors.textMuted} />
+              </PressableScale>
+            </GrowthReveal>
+
+            <SectionTitle title="今日记录" right={<Text style={styles.sectionMeta}>最近记录</Text>} />
+            <GrowthReveal index={6}>
               <GrowthTodayRecords growth={growth} />
             </GrowthReveal>
 
@@ -129,6 +155,20 @@ export default function GrowthInsightsScreen() {
           </>
         )}
       </Animated.ScrollView>
+
+      <HealthPrintShare
+        visible={printOpen}
+        onClose={() => setPrintOpen(false)}
+        data={{
+          rangeLabel: "今日",
+          dateText: new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" }),
+          sleepHours: growth.sleepHours,
+          kcal: growth.data?.fitness.nutritionKcal ?? 0,
+          workoutMinutes: growth.data?.fitness.workoutMinutes ?? 0,
+          waterMl: growth.waterMl,
+          seed: "health-" + new Date().toISOString().slice(0, 10) + "-" + growth.waterMl + "-" + (growth.data?.fitness.nutritionKcal ?? 0),
+        }}
+      />
     </View>
   );
 }
@@ -139,6 +179,27 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg },
     sectionMeta: { ...typography.meta, color: colors.textMeta },
+    shareCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      padding: spacing.lg,
+      borderRadius: radius.card,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+    },
+    shareIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    shareTextBox: { flex: 1, minWidth: 0, gap: 2 },
+    shareTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    shareSub: { ...typography.meta, color: colors.textMuted },
     errorBar: {
       flexDirection: "row",
       alignItems: "center",
