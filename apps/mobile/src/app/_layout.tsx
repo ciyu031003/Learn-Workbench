@@ -372,6 +372,9 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         {/* 预览类：从下方淡入更像"查看器" */}
         <Stack.Screen name="resume-preview" options={{ animation: "fade_from_bottom" }} />
         <Stack.Screen name="diagnostics" options={{ animation: "fade_from_bottom" }} />
+        {/* 本轮新增：岗位 3D 卡组 + 全屏沉浸式登录 */}
+        <Stack.Screen name="job-deck" options={{ animation: "slide_from_right" }} />
+        <Stack.Screen name="auth" options={{ animation: "fade", gestureEnabled: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <GlobalFocusTimer />

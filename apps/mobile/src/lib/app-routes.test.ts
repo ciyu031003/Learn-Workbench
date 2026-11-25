@@ -32,6 +32,8 @@ const EXPECTED_ROUTES = [
   "/",
   "/account-security",
   "/applications",
+  // 2026-11 新增：全屏沉浸式登录 / 注册（我的页与岗位投递共用）
+  "/auth",
   "/career",
   "/certificates",
   "/dashboard",
@@ -53,6 +55,8 @@ const EXPECTED_ROUTES = [
   "/habits",
   "/interview",
   // P3-3A：岗位详情页 / 我的收藏（招花列表点卡片、收藏 icon 进入）
+  // 2026-11 新增：岗位 3D 卡组（职业 hub「卡片浏览」进入）
+  "/job-deck",
   "/job-detail",
   "/jobs",
   "/jobs-favorites",

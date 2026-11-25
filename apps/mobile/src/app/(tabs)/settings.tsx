@@ -683,7 +683,7 @@ export default function SettingsScreen() {
               onPress={() => {
                 haptics.light();
                 if (token) setProfileEditOpen(true);
-                else setAuthOpen(true);
+                else router.push("/auth" as never);
               }}
               style={styles.heroIdentity}
               accessibilityRole="button"
@@ -738,7 +738,7 @@ export default function SettingsScreen() {
                 scaleTo={0.97}
                 onPress={() => {
                   if (token) setProfileEditOpen(true);
-                  else setAuthOpen(true);
+                  else router.push("/auth" as never);
                 }}
                 style={styles.heroAuthCta}
                 accessibilityRole="button"
@@ -1183,7 +1183,7 @@ export default function SettingsScreen() {
             onPress={() => {
               haptics.light();
               if (token) router.push("/account-security");
-              else setAuthOpen(true);
+              else router.push("/auth" as never);
             }}
             accessibilityLabel={"账号与安全，" + (token ? "已登录" : "未登录") + "，点此打开"}
           />
@@ -1219,7 +1219,7 @@ export default function SettingsScreen() {
               last
               onPress={() => {
                 haptics.light();
-                setAuthOpen(true);
+                router.push("/auth" as never);
               }}
             />
           )}
