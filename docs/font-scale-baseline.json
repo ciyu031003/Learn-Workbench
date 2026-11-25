@@ -1,6 +1,7 @@
 {
   "apps/mobile/src/app/+not-found.tsx": 3,
   "apps/mobile/src/app/account-security.tsx": 6,
+  "apps/mobile/src/app/auth.tsx": 7,
   "apps/mobile/src/app/diagnostics.tsx": 3,
   "apps/mobile/src/app/domain-manager.tsx": 9,
   "apps/mobile/src/app/habits.tsx": 2,
@@ -12,8 +13,10 @@
   "apps/mobile/src/app/tasks.tsx": 3,
   "apps/mobile/src/app/trends.tsx": 1,
   "apps/mobile/src/components/auth-sheet.tsx": 7,
+  "apps/mobile/src/components/award-card-3d.tsx": 8,
   "apps/mobile/src/components/button.tsx": 1,
   "apps/mobile/src/components/calorie-trend.tsx": 3,
+  "apps/mobile/src/components/career/job-deck.tsx": 2,
   "apps/mobile/src/components/celebration-modal.tsx": 1,
   "apps/mobile/src/components/content-picker.tsx": 3,
   "apps/mobile/src/components/day-strip.tsx": 1,
@@ -23,6 +26,7 @@
   "apps/mobile/src/components/food-calendar.tsx": 3,
   "apps/mobile/src/components/gear-card.tsx": 1,
   "apps/mobile/src/components/group-label.tsx": 1,
+  "apps/mobile/src/components/growth/health-print-share.tsx": 12,
   "apps/mobile/src/components/job-detail-modal.tsx": 17,
   "apps/mobile/src/components/kcal-badge.tsx": 3,
   "apps/mobile/src/components/live-log-sheet.tsx": 3,
@@ -42,6 +46,8 @@
   "apps/mobile/src/components/training-load-card.tsx": 2,
   "apps/mobile/src/components/update-sheet.tsx": 7,
   "apps/mobile/src/components/v2/floating-tab-bar.tsx": 2,
+  "apps/mobile/src/components/v2/glass-fab.tsx": 1,
+  "apps/mobile/src/components/v2/glass-segment.tsx": 1,
   "apps/mobile/src/components/v2/home-kit.tsx": 5,
   "apps/mobile/src/components/water-cup.tsx": 3
 }
