@@ -70,13 +70,16 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
       <View style={styles.shadow}>
         <View style={styles.bar}>
           <BlurView
-            intensity={62}
+            intensity={86}
             tint={dark ? "dark" : "light"}
             blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
             blurTarget={blurTarget ?? undefined}
             style={StyleSheet.absoluteFill}
           />
+          {/* 染色层只负责色温与文字对比，不做"白色背板"：30% 白 + 上下镜面高光 */}
           <View style={[StyleSheet.absoluteFill, styles.tint]} />
+          <View pointerEvents="none" style={styles.sheenTop} />
+          <View pointerEvents="none" style={styles.sheenBottom} />
           <View style={styles.topHairline} />
 
           <View
@@ -166,6 +169,8 @@ type TabStyles = {
   bar: ViewStyle;
   tint: ViewStyle;
   topHairline: ViewStyle;
+  sheenTop: ViewStyle;
+  sheenBottom: ViewStyle;
   row: ViewStyle;
   pill: ViewStyle;
   pillSheen: ViewStyle;
@@ -197,12 +202,30 @@ const makeStyles = (colors: ThemeColors, dark: boolean): TabStyles =>
       height: TAB_BAR_HEIGHT,
       borderRadius: TAB_BAR_RADIUS,
       borderWidth: 1,
-      borderColor: dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.9)",
+      borderColor: dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.76)",
       overflow: "hidden",
       backgroundColor: "transparent",
     },
     tint: {
-      backgroundColor: dark ? "rgba(15,20,26,0.86)" : "rgba(255,255,255,0.82)",
+      backgroundColor: colors.glassBar,
+    },
+    /** 顶部 45% 的斜向镜面：模拟玻璃厚度，不做循环动画 */
+    sheenTop: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: "46%",
+      backgroundColor: dark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.30)",
+    },
+    /** 底部一档冷色，让玻璃有"折射"而非纯白 */
+    sheenBottom: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: "54%",
+      backgroundColor: dark ? "rgba(12,22,30,0.10)" : "rgba(198,220,236,0.16)",
     },
     topHairline: {
       position: "absolute",
@@ -224,13 +247,13 @@ const makeStyles = (colors: ThemeColors, dark: boolean): TabStyles =>
       bottom: PILL_GAP,
       left: PILL_GAP,
       borderRadius: 16,
-      backgroundColor: dark ? "rgba(91,147,214,0.22)" : "#E4EFF9",
-      borderWidth: 1,
-      borderColor: dark ? "rgba(128,180,235,0.28)" : "#D6E6F4",
+      backgroundColor: colors.glassPill,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.88)",
       shadowColor: "#2F74C0",
-      shadowOpacity: dark ? 0 : 0.1,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: dark ? 0 : 0.14,
+      shadowRadius: 7,
+      shadowOffset: { width: 0, height: 3 },
     },
     pillSheen: {
       position: "absolute",
@@ -239,8 +262,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean): TabStyles =>
       right: 0,
       bottom: 0,
       borderRadius: 16,
-      backgroundColor: dark ? "transparent" : "rgba(255,255,255,0.42)",
-      opacity: 0.55,
+      backgroundColor: dark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.5)",
+      opacity: 0.7,
     },
     item: {
       flex: 1,

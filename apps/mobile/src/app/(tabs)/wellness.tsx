@@ -6,6 +6,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { ActivityRings } from "@/components/v2/charts";
 import { PressableScale } from "@/components/pressable-scale";
+import { GlassFab } from "@/components/v2/glass-fab";
 import { Surface } from "@/components/surface";
 import { GrowthOverviewSkeleton } from "@/components/growth/growth-skeleton";
 import { GrowthReveal } from "@/components/growth/growth-reveal";
@@ -296,6 +297,20 @@ export default function WellnessScreen() {
           </GrowthReveal>
         )}
       </Animated.ScrollView>
+
+      {/* 右下角液态玻璃加号：睡眠 / 饮食 / 训练三个随时可用的添加入口 */}
+      <GlassFab
+        actions={[
+          { key: "sleep", label: "睡眠", icon: "moon" },
+          { key: "nutrition", label: "饮食", icon: "food" },
+          { key: "workout", label: "训练", icon: "workout" },
+        ]}
+        onPress={(key) => {
+          if (key === "sleep") router.push("/sleep" as never);
+          else if (key === "nutrition") router.push("/nutrition" as never);
+          else router.push("/workout-add" as never);
+        }}
+      />
     </View>
   );
 }

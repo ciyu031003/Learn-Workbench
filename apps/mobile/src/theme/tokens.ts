@@ -59,10 +59,16 @@ const lightColors = {
 
   // 玻璃材质（Android 走 BlurView 叠加层，iOS 走系统 GlassView）
   // 透明度整体提高（更"实"），层级靠描边 + 高光 + 投影，避免"过于透明"。
-  glassTint: "rgba(255,255,255,0.64)",
+  glassTint: "rgba(255,255,255,0.52)",
   glassBorder: "rgba(255,255,255,0.92)",
   glassHighlight: "rgba(255,255,255,0.95)",
   glassShade: "rgba(155,196,232,0.30)",
+  /** 真玻璃底栏：染色压到 30%，BlurView 才能透出后方内容（白色背板的根因是染色过实） */
+  glassBar: "rgba(255,255,255,0.30)",
+  /** 玻璃上的选中胶囊：高光白 + 极轻蓝，不做实色块 */
+  glassPill: "rgba(255,255,255,0.66)",
+  /** 玻璃顶部镜面高光 */
+  glassSpecular: "rgba(255,255,255,0.94)",
 
   // 专注沉浸暗色世界（全屏专注，不随主题切换）
   focusCanvas: "#08131B",
@@ -119,10 +125,13 @@ const darkColors = {
 
   scrim: "rgba(0,0,0,0.55)",
 
-  glassTint: "rgba(18,26,30,0.82)",
+  glassTint: "rgba(14,21,26,0.66)",
   glassBorder: "rgba(255,255,255,0.16)",
   glassHighlight: "rgba(255,255,255,0.20)",
   glassShade: "rgba(91,147,214,0.18)",
+  glassBar: "rgba(16,24,30,0.46)",
+  glassPill: "rgba(255,255,255,0.13)",
+  glassSpecular: "rgba(255,255,255,0.30)",
 
   focusCanvas: "#08131B",
   focusAccent: "#F3C495",
