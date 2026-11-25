@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   Extrapolation,
@@ -11,6 +12,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
+import { useBlurTarget } from "@/components/blur-target";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
 import { useReducedMotion } from "@/lib/motion";
@@ -73,10 +75,19 @@ export function QuizStack({
   /** 跟手位移（x）与卡片不透明度 */
   const dx = useSharedValue(0);
   const fade = useSharedValue(1);
+  /** 3D 翻面进度：0 = 题目面，1 = 答案面 */
+  const flip = useSharedValue(0);
+  /** 切卡时的高斯模糊过渡层不透明度 */
+  const blur = useSharedValue(0);
+  const blurTarget = useBlurTarget();
 
   const total = items.length;
   const safeIndex = total === 0 ? 0 : Math.min(index, total - 1);
   const current = items[safeIndex];
+
+  useEffect(() => {
+    flip.value = reduced ? (revealed ? 1 : 0) : withTiming(revealed ? 1 : 0, { duration: 280 });
+  }, [flip, reduced, revealed]);
 
   const goTo = useCallback((next: number) => {
     setIndex(next);
@@ -111,12 +122,14 @@ export function QuizStack({
           dx.value = 0;
           runOnJS(step)(1);
         } else {
+          blur.value = withTiming(1, { duration: 110 });
           fade.value = withTiming(0, { duration: 120 });
           dx.value = withTiming(-(cardW + 80), { duration: 170 }, (finished) => {
             if (!finished) return;
             runOnJS(step)(1);
             dx.value = 0;
             fade.value = withTiming(1, { duration: 160 });
+            blur.value = withTiming(0, { duration: 200 });
           });
         }
         return;
@@ -126,12 +139,14 @@ export function QuizStack({
           dx.value = 0;
           runOnJS(step)(-1);
         } else {
+          blur.value = withTiming(1, { duration: 110 });
           fade.value = withTiming(0, { duration: 120 });
           dx.value = withTiming(cardW + 80, { duration: 170 }, (finished) => {
             if (!finished) return;
             runOnJS(step)(-1);
             dx.value = 0;
             fade.value = withTiming(1, { duration: 160 });
+            blur.value = withTiming(0, { duration: 200 });
           });
         }
         return;
@@ -156,6 +171,20 @@ export function QuizStack({
       opacity: 0.5 + p * 0.4,
     };
   });
+
+  /** 题目面：0° → 180°，过半后隐藏，避免两面同时可读 */
+  const frontStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(flip.value, [0, 0.49, 0.5, 1], [1, 1, 0, 0]),
+    transform: [{ perspective: 1200 }, { rotateY: interpolate(flip.value, [0, 1], [0, 180]) + "deg" }],
+  }));
+
+  /** 答案面：-180° → 0°，与题目面交换 */
+  const backStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(flip.value, [0, 0.5, 0.51, 1], [0, 0, 1, 1]),
+    transform: [{ perspective: 1200 }, { rotateY: interpolate(flip.value, [0, 1], [-180, 0]) + "deg" }],
+  }));
+
+  const blurStyle = useAnimatedStyle(() => ({ opacity: blur.value }));
 
   const exit = useCallback(() => {
     haptics.soft();
@@ -186,38 +215,71 @@ export function QuizStack({
 
                 <GestureDetector gesture={pan}>
                   <Animated.View style={[styles.card, { width: cardW, height: cardH }, cardStyle]}>
-                    {/* 头部：题型 / 难度 / 进度 */}
-                    <View style={styles.head}>
-                      <Text style={styles.headModule} numberOfLines={1}>{current.module}</Text>
-                      <Text style={styles.headDiff}>{DIFF_LABEL[current.difficulty] ?? current.difficulty}</Text>
-                      <Text style={styles.headCount}>{safeIndex + 1} / {total}</Text>
-                    </View>
+                    {/* 正面：题目 —— 轻点整张卡翻面 */}
+                    <Animated.View style={[styles.face, frontStyle]}>
+                      <Pressable
+                        style={styles.faceInner}
+                        onPress={() => {
+                          haptics.success();
+                          setRevealed(true);
+                        }}
+                        accessibilityLabel="翻面查看答案"
+                      >
+                        <View style={styles.head}>
+                          <Text style={styles.headModule} numberOfLines={1}>{current.module}</Text>
+                          <Text style={styles.headDiff}>{DIFF_LABEL[current.difficulty] ?? current.difficulty}</Text>
+                          <Text style={styles.headCount}>{safeIndex + 1} / {total}</Text>
+                        </View>
 
-                    {/* 上半：题目 */}
-                    <ScrollView style={styles.questionWrap} contentContainerStyle={styles.questionPad} showsVerticalScrollIndicator={false}>
-                      <Text style={styles.questionText}>{current.question}</Text>
-                    </ScrollView>
+                        <ScrollView style={styles.questionWrap} contentContainerStyle={styles.questionPad} showsVerticalScrollIndicator={false}>
+                          <Text style={styles.questionText}>{current.question}</Text>
+                        </ScrollView>
 
-                    {/* 下半：答案（未揭示时被纯色盖板遮住） */}
-                    <View style={styles.answerWrap}>
-                      {revealed ? (
+                        <View style={styles.flipHint}>
+                          <ThemedIcon name="eye-outline" size={20} color={colors.primary} />
+                          <Text style={styles.flipHintTitle}>轻点翻面看答案</Text>
+                          <Text style={styles.flipHintSub}>先自己想一想，再对答案更有效</Text>
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+
+                    {/* 背面：参考答案 —— 轻点返回题目 */}
+                    <Animated.View style={[styles.face, styles.faceBack, backStyle]}>
+                      <Pressable
+                        style={styles.faceInner}
+                        onPress={() => {
+                          haptics.light();
+                          setRevealed(false);
+                        }}
+                        accessibilityLabel="翻回题目"
+                      >
+                        <View style={styles.head}>
+                          <Text style={styles.headModule} numberOfLines={1}>{current.module} · 答案</Text>
+                          <Text style={styles.headCount}>{safeIndex + 1} / {total}</Text>
+                        </View>
+
                         <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerPad} showsVerticalScrollIndicator={false}>
                           <Text style={styles.answerLabel}>参考答案</Text>
                           <Text style={styles.answerText}>{current.answer.trim() || "（该题暂无答案记录）"}</Text>
                         </ScrollView>
-                      ) : (
-                        <Pressable
-                          style={styles.cover}
-                          onPress={() => { haptics.success(); setRevealed(true); }}
-                          accessibilityLabel="显示答案"
-                        >
-                          <View style={styles.coverSheen} pointerEvents="none" />
-                          <ThemedIcon name="eye-outline" size={22} color={colors.primary} />
-                          <Text style={styles.coverTitle}>点击显示答案</Text>
-                          <Text style={styles.coverHint}>先自己想一想，再对答案更有效</Text>
-                        </Pressable>
-                      )}
-                    </View>
+
+                        <View style={styles.flipBackHint}>
+                          <ThemedIcon name="refresh" size={13} color={colors.textMuted} />
+                          <Text style={styles.flipBackHintText}>轻点返回题目</Text>
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+
+                    {/* 切卡高斯模糊过渡：换字发生在完全模糊的一帧，看不到两张卡文字重叠 */}
+                    <Animated.View pointerEvents="none" style={[styles.blurLayer, blurStyle]}>
+                      <BlurView
+                        intensity={30}
+                        tint="light"
+                        blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+                        blurTarget={blurTarget ?? undefined}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    </Animated.View>
                   </Animated.View>
                 </GestureDetector>
               </View>
@@ -282,30 +344,28 @@ const makeStyles = (colors: ThemeColors) =>
     questionWrap: { flex: 1 },
     questionPad: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
     questionText: { ...typography.body, color: colors.text },
-    answerWrap: { flex: 1, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+    face: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backfaceVisibility: "hidden" },
+    faceBack: { backgroundColor: colors.surfaceStrong },
+    faceInner: { flex: 1 },
     answerScroll: { flex: 1 },
     answerPad: { padding: spacing.lg },
     answerLabel: { ...typography.caption, color: colors.primary, marginBottom: spacing.xs },
     answerText: { ...typography.callout, color: colors.text },
-    cover: {
-      flex: 1,
+    flipHint: {
       alignItems: "center",
       justifyContent: "center",
-      gap: spacing.xs,
-      /** 纯色"毛玻璃"盖板：完全不透出答案文本 */
-      backgroundColor: colors.surfaceMuted,
+      gap: 2,
+      paddingVertical: spacing.md,
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.lg,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primarySoft,
     },
-    coverSheen: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: "55%",
-      backgroundColor: colors.surfaceStrong,
-      opacity: 0.5,
-    },
-    coverTitle: { ...typography.headline, color: colors.text },
-    coverHint: { ...typography.caption, color: colors.textMuted },
+    flipHintTitle: { ...typography.callout, fontWeight: "700", color: colors.primary },
+    flipHintSub: { ...typography.meta, color: colors.textMuted },
+    flipBackHint: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingBottom: spacing.md },
+    flipBackHintText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    blurLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     footRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.md },
     footText: { ...typography.caption, color: colors.textMuted },
     closeBtn: {

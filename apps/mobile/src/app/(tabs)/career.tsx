@@ -72,7 +72,13 @@ export default function CareerScreen() {
         </Animated.View>
 
         {/* ② 岗位决策矩阵：radar.top 前 4 个，表格式（不是卡片流） */}
-        <SectionTitle title="岗位决策矩阵" right={<Text style={styles.sectionMeta}>{matrixMeta}</Text>} style={styles.section} />
+        <SectionTitle
+          title="岗位决策矩阵"
+          right={<Text style={styles.sectionMeta}>{matrixMeta}</Text>}
+          actionLabel="卡片浏览"
+          onAction={() => router.push("/job-deck" as never)}
+          style={styles.section}
+        />
         <Animated.View entering={entrance(1)}>
           <CareerDecisionMatrix rows={decisionRows} />
         </Animated.View>
