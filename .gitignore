@@ -77,3 +77,5 @@ scripts/.audit_cookie.txt
 
 # 408 演示逐帧抓取产物（capture-demos.mjs 生成；部署走资产包，不进 Git）
 apps/web/public/content-demos/
+
+.tmp/
