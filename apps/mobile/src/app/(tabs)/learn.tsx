@@ -1,4 +1,5 @@
 import { RefreshControl, ScrollView, Text } from "react-native";
+import { ScreenBlurTarget } from "@/components/screen-blur-target";
 import Animated from "react-native-reanimated";
 
 import { LearnCabinHero } from "@/components/learn/learn-hero";
@@ -95,7 +96,8 @@ export default function LearnScreen() {
   } = useLearnScreen();
 
   return (
-    <ScrollView
+    <ScreenBlurTarget>
+      <ScrollView
       ref={learnScrollRef}
       refreshControl={<RefreshControl {...learnRefresh} />}
       style={styles.scroll}
@@ -194,7 +196,8 @@ export default function LearnScreen() {
         setContentTopic={setContentTopic}
         removeCustomTopic={removeCustomTopic}
       />
-    </ScrollView>
+      </ScrollView>
+    </ScreenBlurTarget>
   );
 }
 

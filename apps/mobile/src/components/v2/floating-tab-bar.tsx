@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Platform, Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
-import { useBlurTarget } from "@/components/blur-target";
+import { getBlurTarget, subscribeBlurTarget } from "@/lib/blur-target-registry";
+import { ContextAddFab } from "./context-add-fab";
 import type { BottomTabBarProps, BottomTabNavigationOptions } from "expo-router/tabs";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useTheme } from "@/theme";
@@ -36,8 +37,11 @@ const PILL_GAP = 6;
 export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
-  /** Android 真玻璃的截图目标（provider 没挂时是 null，BlurView 自动退化） */
-  const blurTarget = useBlurTarget();
+  /**
+   * Android 真玻璃：截图目标 = 当前聚焦的一级 Tab 屏幕根视图（由各屏注册）。
+   * 底栏与屏幕是兄弟节点，不在目标子树里 → 不会递归截图。
+   */
+  const blurTarget = useSyncExternalStore(subscribeBlurTarget, getBlurTarget, getBlurTarget);
   const reduced = useReducedMotion();
   const active = isMotionActive(reduced);
 
@@ -67,10 +71,13 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
         },
       ]}
     >
-      <View style={styles.shadow}>
+      <View style={styles.mainRow}>
+      <View style={[styles.shadow, styles.barGrow]}>
         <View style={styles.bar}>
-          {/* Android 在 2.8.2 起不再下发 blurTarget；此时 BlurView 会画出一层白底，
-              必须整块跳过，只保留染色 + 镜面高光（否则底栏会变回白色背板）。 */}
+          {/* Android 真液态玻璃：blurTarget 指向与底栏同级的「当前屏内容」
+              （ScreenBlurTarget 注册到 lib/blur-target-registry）。底栏本身不在目标子树里，
+              因此不会像 2.8.0 那样递归截图。目标首帧尚未注册时先不挂 BlurView，
+              避免 expo-blur 在没有 target 时画出一层不透明背板。 */}
           {Platform.OS !== "android" || blurTarget ? (
             <BlurView
               intensity={86}
@@ -163,12 +170,16 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
           </View>
         </View>
       </View>
+      <ContextAddFab insets={insets} />
+      </View>
     </View>
   );
 }
 
 type TabStyles = {
   host: ViewStyle;
+  mainRow: ViewStyle;
+  barGrow: ViewStyle;
   shadow: ViewStyle;
   bar: ViewStyle;
   tint: ViewStyle;
@@ -194,6 +205,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean): TabStyles =>
       left: 0,
       right: 0,
     },
+    mainRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    barGrow: { flex: 1 },
     shadow: {
       borderRadius: TAB_BAR_RADIUS,
       shadowColor: "#1A303C",

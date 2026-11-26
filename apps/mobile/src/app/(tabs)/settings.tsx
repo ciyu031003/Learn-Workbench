@@ -59,6 +59,7 @@ import { useIdentity } from "@/hooks/use-identity";
 import { absoluteMediaUrl } from "@/lib/uploads";
 import { haptics } from "@/lib/haptics";
 import type { ThemeColors, ThemeMode } from "@/theme/tokens";
+import { ScreenBlurTarget } from "@/components/screen-blur-target";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
 import { setMotionUserEnabled } from "@/theme/motion";
@@ -653,7 +654,8 @@ export default function SettingsScreen() {
   );
 
   return (
-    <ScrollView
+    <ScreenBlurTarget>
+      <ScrollView
       ref={settingsScrollRef}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace + spacing.lg }]}
@@ -1461,7 +1463,8 @@ export default function SettingsScreen() {
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
       <ProfileEditSheet visible={profileEditOpen} onClose={() => setProfileEditOpen(false)} />
-    </ScrollView>
+      </ScrollView>
+    </ScreenBlurTarget>
   );
 }
 

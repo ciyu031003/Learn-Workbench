@@ -19,6 +19,7 @@ import { useTodayScreen } from "@/components/today/use-today-screen";
 import { haptics } from "@/lib/haptics";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
 import { useAppStore } from "@/store/app-store";
+import { ScreenBlurTarget } from "@/components/screen-blur-target";
 import { useTheme } from "@/theme";
 import { typography } from "@/theme/tokens";
 
@@ -113,7 +114,7 @@ export default function TodayScreen() {
   const openTasks = () => router.push("/tasks" as never);
 
   return (
-    <View style={styles.root}>
+    <ScreenBlurTarget style={styles.root}>
       <Animated.ScrollView
         ref={todayScrollRef}
         refreshControl={<RefreshControl {...todayRefresh} />}
@@ -289,7 +290,7 @@ export default function TodayScreen() {
         checkinToday={checkinToday}
         streak={streak}
       />
-    </View>
+    </ScreenBlurTarget>
   );
 }
 

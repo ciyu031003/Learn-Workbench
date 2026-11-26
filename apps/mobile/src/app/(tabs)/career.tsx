@@ -15,6 +15,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { InlineToast, TOAST_DEFAULT_LIFE_MS } from "@/components/toast";
 import { Icon, ICON_SIZE } from "@/components/ui/icon";
 import { SectionTitle } from "@/components/v2/section-title";
+import { ScreenBlurTarget } from "@/components/screen-blur-target";
 import { useTheme } from "@/theme";
 
 /**
@@ -58,7 +59,7 @@ export default function CareerScreen() {
   } = useCareerScreen();
 
   return (
-    <View style={styles.root}>
+    <ScreenBlurTarget style={styles.root}>
       <Animated.ScrollView
         ref={careerScrollRef}
         refreshControl={<RefreshControl {...careerRefresh} />}
@@ -136,7 +137,7 @@ export default function CareerScreen() {
           />
         ) : null}
       </Animated.ScrollView>
-    </View>
+    </ScreenBlurTarget>
   );
 }
 

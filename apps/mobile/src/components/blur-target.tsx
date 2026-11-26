@@ -24,6 +24,12 @@ import type { View as RNView } from "react-native";
  * 视觉是半透明实底而不是真模糊 —— 用可接受的观感换掉原生崩溃。
  * iOS 不受影响：iOS 26 走系统 GlassView，其余走系统原生模糊，不需要 blurTarget。
  *
+ * ## 2.8.4 起：底栏先恢复真玻璃
+ * 悬浮底栏改成「同级截图目标」：每个一级 Tab 用 ScreenBlurTarget 包内容并把 ref 注册到
+ * lib/blur-target-registry，底栏（Tabs 的兄弟节点）读取当前聚焦屏的 ref —— 见
+ * components/screen-blur-target.tsx。屏幕内部的玻璃卡仍从这里拿到 null（染色降级），
+ * 避免再次递归；底栏已在 Android 15 模拟器上做过进/出页面、切 Tab、开合弹层的回归。
+ *
  * ## 正确做法（后续，需真机验证）
  * 按 expo-blur 文档把 BlurTargetView 只包**内容层**，让所有 BlurView 成为它的
  * **兄弟节点**（悬浮底栏要从 Tabs 的 tabBar 里提出来，或给每个 tab 屏单独包一层

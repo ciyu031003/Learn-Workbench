@@ -8,7 +8,7 @@ import { radius, spacing, type ThemeColors } from "@/theme/tokens";
  * 成长页 / 数据看板的骨架屏（复用 components/skeleton 的统一骨架能力）。
  *
  * 约束：
- *  - 形状与真实内容对齐（概览层 = hero + 三个指标 + 一条周状态；数据看板 = hero + 分组卡 + 列表），
+ *  - 形状与真实内容对齐（成长页 = FoodNoms 仪表盘：页头 + 双列 + 通栏 + 双列 + 通栏 + 2×2），
  *    骨架切换到内容时不出现高度跳变；
  *  - 不新写动画：呼吸 + 扫光全部来自 components/skeleton（那里已接减弱动态降级）；
  *  - 只在首轮真实请求结束前显示（判据见 use-growth-data.ts，不用固定 setTimeout）。
@@ -24,16 +24,47 @@ export function GrowthOverviewSkeleton() {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <SkeletonBlock variant="hero" style={styles.hero} />
-      <View style={styles.statRow}>
-        {[0, 1, 2].map((index) => (
-          <View key={index} style={styles.statCell}>
-            <Skeleton variant="line" style={styles.statLabel} />
-            <Skeleton variant="line" style={styles.statValue} />
+      {/* 页头：INSIGHTS / 成长洞察 / 日期 */}
+      <View style={styles.head}>
+        <Skeleton variant="line" style={styles.kicker} />
+        <Skeleton variant="line" style={styles.title} />
+        <Skeleton variant="line" style={styles.sub} />
+      </View>
+
+      <View style={styles.grid}>
+        <View style={styles.half}>
+          <SkeletonBlock variant="card" style={styles.tallCard} />
+        </View>
+        <View style={styles.half}>
+          <SkeletonBlock variant="card" style={styles.tallCard} />
+        </View>
+        <SkeletonBlock variant="chart" style={styles.fullChart} />
+        <View style={styles.half}>
+          <SkeletonBlock variant="card" style={styles.shortCard} />
+        </View>
+        <View style={styles.half}>
+          <SkeletonBlock variant="card" style={styles.shortCard} />
+        </View>
+        <SkeletonBlock variant="card" style={styles.fullCard} />
+      </View>
+
+      <Skeleton variant="line" style={styles.sectionLine} />
+
+      <View style={styles.grid}>
+        {[0, 1, 2, 3].map((index) => (
+          <View key={index} style={styles.half}>
+            <SkeletonBlock variant="card" style={styles.goalCard} />
           </View>
         ))}
       </View>
-      <SkeletonBlock variant="chart" style={styles.weekBars} />
+
+      <Skeleton variant="line" style={styles.sectionLine} />
+
+      <View style={styles.quickRow}>
+        {[0, 1, 2].map((index) => (
+          <SkeletonBlock key={index} variant="line" style={styles.quick} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -61,18 +92,21 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     wrap: { gap: spacing.md },
     hero: { height: 208, borderRadius: radius.panel },
-    statRow: { flexDirection: "row", gap: spacing.sm },
-    statCell: {
-      flex: 1,
-      gap: spacing.sm,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.card,
-      borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: colors.border,
-    },
-    statLabel: { height: 10, width: "52%" },
-    statValue: { height: 18, width: "72%" },
-    weekBars: { height: 84, borderRadius: radius.card },
-    sectionLine: { height: 14, width: "34%", marginTop: spacing.sm },
+
+    head: { gap: 7, paddingTop: 4 },
+    kicker: { height: 10, width: 118 },
+    title: { height: 30, width: 168, borderRadius: radius.sm },
+    sub: { height: 11, width: 216 },
+
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    half: { flexGrow: 1, flexBasis: "46%" },
+    tallCard: { height: 168 },
+    shortCard: { height: 136 },
+    fullChart: { height: 188, width: "100%" },
+    fullCard: { height: 152, width: "100%" },
+    goalCard: { height: 122 },
+
+    sectionLine: { height: 15, width: 96, marginTop: 4 },
+    quickRow: { flexDirection: "row", gap: 8 },
+    quick: { flex: 1, height: 64, borderRadius: radius.card },
   });
