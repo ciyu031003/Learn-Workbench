@@ -10,6 +10,7 @@
  * 这样"改内容只改库"，App 不需要跟着发版；内置内容包退化为纯离线兜底。
  */
 import { useMemo, useSyncExternalStore } from "react";
+import { sanitizeLearningTracks } from "@/lib/legacy-html-text";
 import { algorithmAnimations as bundledAnimations, learningTracks as bundledTracks } from "@learn-workbench/content/learning";
 import type { LearningTrack } from "@learn-workbench/content/types";
 import { getApiUrl } from "@/config";
@@ -20,7 +21,7 @@ export interface AnimationFrame {
 }
 export type AnimationFrames = Record<string, AnimationFrame[]>;
 
-let tracks: LearningTrack[] = bundledTracks;
+let tracks: LearningTrack[] = sanitizeLearningTracks(bundledTracks);
 let animations: AnimationFrames = bundledAnimations as AnimationFrames;
 let hydrated = false;
 let inflight: Promise<boolean> | null = null;
@@ -80,7 +81,7 @@ export async function hydrateLearningContent(): Promise<boolean> {
       if (!response.ok) return false;
       const data = (await response.json()) as { tracks?: LearningTrack[]; animations?: AnimationFrames };
       if (Array.isArray(data.tracks) && data.tracks.length > 0) {
-        tracks = data.tracks;
+        tracks = sanitizeLearningTracks(data.tracks);
         if (data.animations && Object.keys(data.animations).length > 0) animations = data.animations;
         hydrated = true;
         emit();
@@ -98,7 +99,7 @@ export async function hydrateLearningContent(): Promise<boolean> {
 
 /** 测试用：重置状态（可注入夹具）。 */
 export function __resetLearningContentForTest(next?: LearningTrack[]): void {
-  tracks = next ?? bundledTracks;
+  tracks = sanitizeLearningTracks(next ?? bundledTracks);
   animations = bundledAnimations as AnimationFrames;
   hydrated = false;
   inflight = null;
