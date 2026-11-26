@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
-import { todayISO, exerciseTypeSchema } from "@learn-workbench/shared";
+import { exerciseTypeSchema } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 const SOURCES = ["MANUAL", "FOCUS", "BREAK"];
 
@@ -12,7 +13,7 @@ function pickType(raw: unknown): string {
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const date = url.searchParams.get("date") || todayISO();
+  const date = url.searchParams.get("date") || todayISOInZone();
   const daysParam = Math.min(30, Math.max(1, Math.round(Number(url.searchParams.get("days")) || 0)));
   const scope = await userScope();
   const w = scopeWhere(scope, [scope.uid, date]);

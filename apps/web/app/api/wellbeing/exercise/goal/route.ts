@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
-import { todayISO } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 export async function GET() {
   const scope = await userScope();
-  const date = todayISO();
+  const date = todayISOInZone();
   const w = scopeWhere(scope, [scope.uid, date]);
   const { rows } = await pgPool.query(
     `SELECT id, target_minutes AS "targetMinutes" FROM exercise_goals
@@ -23,7 +23,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "目标需在 1-600 分钟之间" }, { status: 400 });
   }
   const scope = await userScope();
-  const date = todayISO();
+  const date = todayISOInZone();
 
   // 幂等：当天已有目标则更新，否则新增
   const w = scopeWhere(scope, [scope.uid, date]);

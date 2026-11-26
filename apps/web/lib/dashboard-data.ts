@@ -3,7 +3,7 @@ import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql, userScope, scopeWhere } from "@/lib/anon";
 import { computeReadiness } from "@/lib/readiness";
 import { buildTodayPlan } from "@/lib/wellbeing";
-import { todayISO } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { addDaysToDateKey, computeStreak, dateKeyInZone } from "@learn-workbench/shared/domains";
 import type { CareerReadiness, DashboardSummary, WellbeingToday } from "@learn-workbench/shared/schemas";
 
@@ -172,7 +172,7 @@ export async function buildDashboardPayload(): Promise<DashboardPayload> {
 /** 今日健康/精力聚合（原 /api/wellbeing/today 逻辑，逐行搬移） */
 export async function buildWellbeingToday(): Promise<WellbeingToday> {
   const scope = await userScope();
-  const date = todayISO();
+  const date = todayISOInZone();
 
   // 饮水
   const w1 = scopeWhere(scope, [scope.uid, date]);

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
-import { todayISO } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 const KINDS = ["SHORT", "LONG", "MOVEMENT", "EYE_REST", "MEAL"];
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const date = url.searchParams.get("date") || todayISO();
+  const date = url.searchParams.get("date") || todayISOInZone();
   const scope = await userScope();
   const w = scopeWhere(scope, [scope.uid, date]);
   const { rows } = await pgPool.query(

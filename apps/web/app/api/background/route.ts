@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { todayISO } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 import { getBackgroundSummary } from "@/lib/background/bing";
 import { logger } from "@/lib/logger";
@@ -64,7 +64,7 @@ function readFileFallback(today: string) {
 }
 
 export async function GET() {
-  const today = todayISO();
+  const today = todayISOInZone();
 
   try {
     const summary = await getBackgroundSummary(today);

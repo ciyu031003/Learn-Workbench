@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
-import { todayISO } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 export async function GET() {
   const scope = await userScope();
-  const w = scopeWhere(scope, [scope.uid, todayISO()]);
+  const w = scopeWhere(scope, [scope.uid, todayISOInZone()]);
   const { rows } = await pgPool.query(
     `SELECT id, target_ml AS "targetMl" FROM hydration_goals
      WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND effective_from <= $2::date
@@ -22,7 +22,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "目标需在 200-10000 ml 之间" }, { status: 400 });
   }
   const scope = await userScope();
-  const today = todayISO();
+  const today = todayISOInZone();
   const w = scopeWhere(scope, [scope.uid, today]);
   const existing = await pgPool.query(
     `SELECT id FROM hydration_goals WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND effective_from = $2::date`,

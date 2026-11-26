@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
-import { todayISO } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { dailyCacheGet, dailyCacheSet } from "@/lib/daily-cache";
@@ -41,7 +41,7 @@ export async function GET() {
   if (!scope.uid) {
     return NextResponse.json({ enabled: true, tip: null, error: "请先登录" }, { status: 401 });
   }
-  const date = todayISO();
+  const date = todayISOInZone();
 
   // 当日缓存命中：不消耗上游配额，也不再重复查询上下文
   const cacheKey = `ai-tip:${scope.uid}:${date}`;

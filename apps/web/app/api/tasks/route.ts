@@ -3,11 +3,11 @@ import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
-import { todayISO } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const date = url.searchParams.get("date") || todayISO();
+  const date = url.searchParams.get("date") || todayISOInZone();
   const careerParam = url.searchParams.get("career");
   const uid = await currentUserId();
   const anonId = uid ? null : await getAnonId();
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
   const body = await req.json().catch(() => null);
-  const taskDate = String(body?.taskDate || todayISO());
+  const taskDate = String(body?.taskDate || todayISOInZone());
   const title = String(body?.title || "").trim();
   const taskType = String(body?.taskType || "study");
   const career = String(body?.career || "ict");

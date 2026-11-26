@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn() } }));
 vi.mock("@/lib/anon", () => ({ userScope: vi.fn(), scopeWhere: vi.fn() }));
 vi.mock("@/lib/wellbeing", () => ({ buildTodayPlan: vi.fn() }));
-vi.mock("@learn-workbench/shared", async (importOriginal) => {
+vi.mock("@learn-workbench/shared/domains", async (importOriginal) => {
   const mod = (await importOriginal()) as Record<string, unknown>;
-  return { ...mod, todayISO: vi.fn(() => "2026-08-29") };
+  return { ...mod, todayISOInZone: vi.fn(() => "2026-08-29") };
 });
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";

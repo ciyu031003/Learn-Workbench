@@ -7,6 +7,7 @@ import {
   clamp,
   roadmapSchema,
 } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoOf = (d: Date) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
@@ -18,6 +19,13 @@ describe("shared helpers", () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     expect(todayISO(1)).toBe(isoOf(tomorrow));
+  });
+
+  it("todayISOInZone keeps the business day on Asia/Shanghai across the UTC midnight", () => {
+    // 2026-11-26T17:27Z = 2026-11-27 01:27 CST：接口默认日期必须落到 27 号，
+    // 否则 00:00–08:00 写入的饮水/训练/任务会被算到前一天（S5-1 决策 D3）。
+    expect(todayISOInZone("Asia/Shanghai", "2026-11-26T17:27:06Z")).toBe("2026-11-27");
+    expect(todayISOInZone("Asia/Shanghai", "2026-11-26T15:59:59Z")).toBe("2026-11-26");
   });
 
   it("formatDateCN renders Chinese date", () => {
