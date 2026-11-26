@@ -190,6 +190,13 @@ function useStoreHydrated(): boolean {
   return hydrated || timedOut;
 }
 
+/** 首屏请求硬超时：离线 / 弱网时 fetch 可能挂 30s+，骨架屏不能陪它一起等。 */
+function fetchWithTimeout(input: string, init: RequestInit = {}, ms = 7000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export function useGrowthData(): GrowthScreenData {
   const token = useAppStore((s) => s.token);
   const checkins = useAppStore((s) => s.checkins);
@@ -242,10 +249,10 @@ export function useGrowthData(): GrowthScreenData {
       })();
       const [dailyRes, weightRes, workoutRes, summaryRes, hydrationRes, targetRes, sleepLocal, weekWater] =
         await Promise.all([
-          fetch(getApiUrl() + "/api/daily?date=" + todayKey, { headers }),
+          fetchWithTimeout(getApiUrl() + "/api/daily?date=" + todayKey, { headers }),
           fetchWeight(token, 30).catch(() => null),
-          fetch(getApiUrl() + "/api/workouts?days=7", { headers }).catch(() => null),
-          fetch(getApiUrl() + "/api/nutrition/summary?days=7", { headers }).catch(() => null),
+          fetchWithTimeout(getApiUrl() + "/api/workouts?days=7", { headers }).catch(() => null),
+          fetchWithTimeout(getApiUrl() + "/api/nutrition/summary?days=7", { headers }).catch(() => null),
           fetchHydration(token).catch(() => null),
           fetchNutritionTarget(token).catch(() => null),
           sleepApi.loadSleepNights().catch(() => [] as SleepNight[]),
@@ -328,7 +335,13 @@ export function useGrowthData(): GrowthScreenData {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [hydrated, load]);
-  // 聚焦刷新（Tab 切回 / 二级页返回都会再拉一次；只换数据，不再出骨架屏）
+  // 首屏看门狗：无论有多少个并发请求，9s 后都不允许骨架屏继续占屏（数据晚到会正常覆盖）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
+    }, 9000);
+    return () => clearTimeout(timer);
+  }, []);  // 聚焦刷新（Tab 切回 / 二级页返回都会再拉一次；只换数据，不再出骨架屏）
   useFocusRefresh(load);
   const { control } = usePullRefresh(load, { stickyHeader: true });
 

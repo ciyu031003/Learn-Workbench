@@ -13,16 +13,12 @@ import {
 } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Card } from "@/components/card";
-import { EmptyState } from "@/components/empty-state";
 import { ExercisePickerPanel } from "@/components/exercise-picker-panel";
-import { PressableScale } from "@/components/pressable-scale";
-import { PressButton } from "@/components/press-button";
-import { ScreenHeaderStickyBar } from "@/components/screen-header";
-import { ThemedIcon } from "@/components/themed-icon";
+import { Icon } from "@/components/ui/icon";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import { useTheme } from "@/theme";
+import { useV15 } from "@/components/v15/v15-theme";
+import { V15Button, V15Card, V15Header, V15IconButton, V15Note, V15Scroll, V15Section, useV15Layout } from "@/components/v15/v15-ui";
 import { typography, type ThemeColors } from "@/theme/tokens";
 import type { Workout } from "@learn-workbench/shared/schemas";
 import { toDateKey } from "@learn-workbench/shared/dates";
@@ -64,8 +60,8 @@ const DURATION_MAX_MIN = 24 * 60;
 const NOTE_MAX = 2000;
 
 export default function WorkoutAddScreen() {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const v15 = useV15();
+  const styles = useMemo(() => makeStyles(v15), [v15]);
   const insets = useSafeAreaInsets();
   const token = useAppStore((s) => s.token);
   const params = useLocalSearchParams<{ id?: string }>();
@@ -300,228 +296,176 @@ export default function WorkoutAddScreen() {
   );
   const pickerInitial = pickerIndex === null ? null : items[pickerIndex] ?? null;
   const footerPadding = Math.max(12, insets.bottom + 8);
+  const layout = useV15Layout();
+
+  if (pickerOpen) {
+    return (
+      <View style={{ flex: 1, backgroundColor: v15.canvas, paddingTop: insets.top + 4, paddingHorizontal: layout.hPad }}>
+        <V15Header
+          p={v15}
+          kicker="EXERCISE LIBRARY"
+          title="选择动作"
+          subtitle="搜索动作库，或按部位筛选"
+          onBack={cancelPicked}
+          actions={<V15IconButton p={v15} icon="close" label="关闭动作库" onPress={cancelPicked} size={16} weight="bold" />}
+        />
+        <View style={{ flex: 1, marginTop: 10, paddingBottom: footerPadding }}>
+          <ExercisePickerPanel
+            key={pickerSession}
+            initial={pickerInitial}
+            onCancel={cancelPicked}
+            onConfirm={applyPicked}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.root}>
-      <ScreenHeaderStickyBar title={isEdit ? "编辑训练" : "记录训练"} backTo="/workout" />
-      {/*
-        iOS 用 padding 把整个表单（含底部固定按钮）抬到键盘上方；
-        Android 由 app.json 的 softwareKeyboardLayoutMode: "resize" 负责，重复处理会双顶。
-      */}
-      <KeyboardAvoidingView
-        style={styles.body}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {pickerOpen ? (
-          <View style={[styles.pickerWrap, { paddingBottom: footerPadding }]}>
-            <ExercisePickerPanel
-              key={pickerSession}
-              initial={pickerInitial}
-              onCancel={cancelPicked}
-              onConfirm={applyPicked}
-            />
-          </View>
-        ) : loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.centerText}>正在读取这次训练…</Text>
-          </View>
-        ) : loadError ? (
-          <View style={styles.center}>
-            <EmptyState
-              icon="cloud-offline-outline"
-              title="读取训练失败"
-              hint={loadError}
-              actionLabel="重试"
-              onAction={() => void loadExisting()}
-              pattern="none"
-            />
-          </View>
-        ) : (
-          <>
-            <ScrollView
-              ref={scrollRef}
-              style={styles.scroll}
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              showsVerticalScrollIndicator={false}
-              onScroll={(e) => {
-                scrollYRef.current = e.nativeEvent.contentOffset.y;
-              }}
-              scrollEventThrottle={16}
-              onContentSizeChange={() => {
-                // 只在"从动作面板返回"时还原一次；首次挂载 restoreYRef 为 null
-                const y = restoreYRef.current;
-                if (y === null) return;
-                restoreYRef.current = null;
-                scrollRef.current?.scrollTo({ y, animated: false });
-              }}
-            >
-              {/* 草稿总览：长表单里先告诉用户「在填什么、已经填了多少」 */}
-              <View style={styles.hero}>
-                <View style={styles.heroIcon}>
-                  <ThemedIcon name="trending-up-outline" size={21} color={colors.primary} />
-                </View>
-                <View style={styles.heroText}>
-                  <Text style={styles.heroTitle}>{isEdit ? "修改训练" : "训练草稿"}</Text>
-                  <Text style={styles.heroHint}>
-                    {filledItems.length} 个动作 · {draftTotals.sets} 组 · {draftTotals.reps} 次
-                    {draftTotals.volumeKg > 0 ? " · " + draftTotals.volumeKg + " kg" : ""}
-                  </Text>
-                </View>
-                <View style={styles.heroBadge}>
-                  <Text style={styles.heroBadgeText}>{filledItems.length}</Text>
-                </View>
-              </View>
+    <View style={{ flex: 1, backgroundColor: v15.canvas }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <V15Scroll p={v15}>
+          <V15Header
+            p={v15}
+            kicker="LOG WORKOUT"
+            title={isEdit ? "编辑训练" : "记录训练"}
+            subtitle={
+              (filledItems.length > 0 ? filledItems.length + " 个动作 · " + draftTotals.sets + " 组" : "先选动作，再填组次") +
+              " · 今天"
+            }
+            onBack={goBack}
+            actions={<V15IconButton p={v15} icon="close" label="关闭" onPress={goBack} size={16} weight="bold" />}
+          />
 
-              <Card title="训练信息" subtitle="名称与日期会显示在训练历史中">
-                <View style={styles.inputShell}>
-                  <ThemedIcon name="create-outline" size={17} color={colors.textMuted} />
+          {loading ? (
+            <V15Card p={v15} style={{ marginTop: 16 }}>
+              <View style={styles.center}>
+                <ActivityIndicator color={v15.orange} />
+                <Text style={[styles.centerText, { color: v15.sub }]}>正在读取这次训练…</Text>
+              </View>
+            </V15Card>
+          ) : loadError ? (
+            <V15Card p={v15} style={{ marginTop: 16 }}>
+              <View style={styles.center}>
+                <Icon name="info" size={24} weight="duotone" color={v15.orange} />
+                <Text style={[styles.centerTitle, { color: v15.ink }]}>读取训练失败</Text>
+                <Text style={[styles.centerText, { color: v15.sub }]}>{loadError}</Text>
+                <V15Button p={v15} label="重试" icon="sparkle" onPress={() => void loadExisting()} style={{ marginTop: 10, alignSelf: "stretch" }} />
+              </View>
+            </V15Card>
+          ) : (
+            <>
+              <V15Card p={v15} style={{ marginTop: 16 }}>
+                <Text style={[styles.label, { color: v15.sub }]}>训练名称</Text>
+                <View style={[styles.nameInput, { backgroundColor: v15.card2, borderColor: v15.line }]}>
+                  <Icon name="workout" size={17} weight="regular" color={v15.sub} />
                   <TextInput
-                    style={styles.input}
                     value={name}
                     onChangeText={setName}
-                    placeholder="训练名称，例如：胸 + 三头"
-                    placeholderTextColor={colors.textFaint}
+                    placeholder="例如：胸 + 三头"
+                    placeholderTextColor={v15.faint}
                     maxLength={60}
                     returnKeyType="done"
+                    style={[styles.nameText, { color: v15.ink }]}
                   />
                 </View>
+                <Text style={[styles.label, { color: v15.sub, marginTop: 14 }]}>日期</Text>
                 <View style={styles.dateRow}>
                   {dateChoices.map((d) => {
                     const active = d.key === date;
                     return (
                       <Pressable
                         key={d.key}
-                        // chip 视觉高 34，只补纵向热区到 44（横向留给相邻 chip 的 gap）
-                        hitSlop={{ top: 5, bottom: 5 }}
-                        style={[styles.dateChip, active && styles.dateChipActive]}
+                        hitSlop={{ top: 4, bottom: 4 }}
+                        style={[styles.dateChip, { backgroundColor: active ? v15.ink : v15.card2, borderColor: active ? v15.ink : v15.line }]}
                         onPress={() => setDate(d.key)}
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
+                        accessibilityLabel={d.label}
                       >
-                        {active ? <ThemedIcon name="checkmark" size={12} color={colors.primary} /> : null}
-                        <Text style={[styles.dateChipText, active && styles.dateChipTextActive]}>{d.label}</Text>
+                        <Text style={[styles.dateChipText, { color: active ? v15.canvasTop : v15.sub }]} numberOfLines={1}>
+                          {d.label}
+                        </Text>
                       </Pressable>
                     );
                   })}
                 </View>
-                <View style={styles.dateFoot}>
-                  <ThemedIcon name="calendar-outline" size={14} color={colors.textMuted} />
-                  <Text style={styles.dateHint}>记录日期：{date}</Text>
-                </View>
-              </Card>
+              </V15Card>
 
-              <Card title="动作" subtitle="从动作库选择，或创建自定义动作">
-                {items.map((it, i) => (
-                  <View key={i + "-" + (it.exerciseKey ?? "custom")} style={styles.actionRow}>
-                    <View style={styles.itemIndex}>
-                      <Text style={styles.itemIndexText}>{i + 1}</Text>
-                    </View>
-                    <Pressable
-                      style={({ pressed }) => [styles.exercisePick, pressed && styles.exercisePickPressed]}
-                      onPress={() => openPicker(i)}
-                      accessibilityRole="button"
-                      accessibilityLabel={"更换动作 " + (it.exerciseLabel || i + 1)}
-                    >
-                      <View style={styles.exercisePickTextWrap}>
-                        <Text
-                          style={[styles.exercisePickText, !it.exerciseLabel && styles.exercisePickPlaceholder]}
-                          numberOfLines={1}
-                        >
-                          {it.exerciseLabel || "选择动作"}
-                        </Text>
-                        <Text style={styles.exercisePickMeta}>
-                          {it.sets || "0"} 组 × {it.reps || "0"} 次
-                          {it.weightKg ? " · " + it.weightKg + " kg" : " · 自重"}
-                        </Text>
-                      </View>
-                      <ThemedIcon name="chevron-down" size={15} color={colors.textFaint} />
-                    </Pressable>
-                    <Pressable
-                      hitSlop={8}
-                      style={styles.removeBtn}
-                      onPress={() => removeItem(i)}
-                      accessibilityLabel="移除动作"
-                    >
-                      <ThemedIcon name="trash-outline" size={16} color={colors.danger} />
-                    </Pressable>
-                  </View>
-                ))}
+              <V15Section
+                p={v15}
+                title="训练内容"
+                right={filledItems.length + " 个动作 · " + draftTotals.sets + " 组"}
+              />
 
-                <PressableScale
-                  style={styles.addActionCard}
-                  haptic
-                  onPress={openNewAction}
-                  accessibilityRole="button"
-                  accessibilityLabel="添加动作"
-                >
-                  <View style={styles.addActionIcon}>
-                    <ThemedIcon name="add" size={18} color={colors.primary} />
-                  </View>
-                  <View style={styles.addActionText}>
-                    <Text style={styles.addActionTitle}>添加动作</Text>
-                    <Text style={styles.addActionHint}>从动作库选择，或创建自定义动作</Text>
-                  </View>
-                  <ThemedIcon name="chevron-forward" size={17} color={colors.textFaint} />
-                </PressableScale>
-              </Card>
-
-              <Card title="组数明细" subtitle="点「－ / ＋」或直接输入；重量留空表示自重">
-                {items.map((it, i) => {
-                  const volume = Math.round(
-                    (Number(it.sets) || 0) * (Number(it.reps) || 0) * (Number(it.weightKg) || 0)
-                  );
-                  return (
-                    <View key={"detail-" + i + "-" + (it.exerciseKey ?? "custom")} style={styles.detailBlock}>
-                      <View style={styles.detailHead}>
-                        <View style={styles.detailIndex}>
-                          <Text style={styles.detailIndexText}>{i + 1}</Text>
+              {items.map((it, i) => {
+                const volume = (Number(it.sets) || 0) * (Number(it.reps) || 0) * (Number(it.weightKg) || 0);
+                return (
+                  <View key={"detail-" + i + "-" + (it.exerciseKey ?? "custom")} style={[styles.itemCard, { backgroundColor: v15.card, borderColor: v15.line }]}>
+                    <View style={styles.itemHead}>
+                      <Pressable
+                        onPress={() => openPicker(i)}
+                        accessibilityRole="button"
+                        accessibilityLabel={"选择第 " + (i + 1) + " 个动作"}
+                        style={styles.itemPick}
+                      >
+                        <View style={[styles.itemIcon, { backgroundColor: v15.orangeSoft }]}>
+                          <Icon name="workout" size={16} weight="duotone" color={v15.orange} />
                         </View>
-                        <Text style={styles.detailName} numberOfLines={1}>
-                          {it.exerciseLabel || "未选择动作"}
-                        </Text>
-                        <Text style={styles.detailVolume}>
-                          {volume > 0 ? volume + " kg" : (Number(it.sets) || 0) + " 组"}
-                        </Text>
-                      </View>
-                      <View style={styles.stepperStack}>
-                        <MiniStepper
-                          colors={colors}
-                          title="组数"
-                          label="组"
-                          value={it.sets}
-                          onChange={(v) => patchItem(i, { sets: v })}
-                          onStep={(d) => patchItem(i, { sets: stepNumber(it.sets, d, SETS_MIN, SETS_MAX, 4) })}
-                        />
-                        <MiniStepper
-                          colors={colors}
-                          title="次数"
-                          label="次"
-                          value={it.reps}
-                          onChange={(v) => patchItem(i, { reps: v })}
-                          onStep={(d) => patchItem(i, { reps: stepNumber(it.reps, d, REPS_MIN, REPS_MAX, 8) })}
-                        />
-                        <MiniStepper
-                          colors={colors}
-                          title="重量"
-                          label="kg"
-                          value={it.weightKg}
-                          placeholder="自重"
-                          onChange={(v) => patchItem(i, { weightKg: v })}
-                          onStep={(d) => patchItem(i, { weightKg: stepWeight(it.weightKg, d * WEIGHT_STEP) })}
-                          max={WEIGHT_MAX}
-                        />
-                      </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={[styles.itemName, { color: v15.ink }]} numberOfLines={1}>
+                            {it.exerciseLabel.trim() || "选择动作"}
+                          </Text>
+                          <Text style={[styles.itemMeta, { color: v15.sub }]} numberOfLines={1}>
+                            {volume > 0 ? volume + " kg 容量" : (Number(it.sets) || 0) + " 组 · " + (Number(it.reps) || 0) + " 次"}
+                          </Text>
+                        </View>
+                        <Icon name="chevron" size={14} weight="bold" color={v15.faint} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => removeItem(i)}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={"移除第 " + (i + 1) + " 个动作"}
+                        style={[styles.removeBtn, { backgroundColor: v15.redSoft }]}
+                      >
+                        <Icon name="close" size={13} weight="bold" color={v15.red} />
+                      </Pressable>
                     </View>
-                  );
-                })}
-              </Card>
+                    <View style={styles.stepperStack}>
+                      <MiniStepper
+                        title="组数"
+                        label="组"
+                        value={it.sets}
+                        onChange={(v) => patchItem(i, { sets: v })}
+                        onStep={(d) => patchItem(i, { sets: stepNumber(it.sets, d, SETS_MIN, SETS_MAX, 4) })}
+                      />
+                      <MiniStepper
+                        title="次数"
+                        label="次"
+                        value={it.reps}
+                        onChange={(v) => patchItem(i, { reps: v })}
+                        onStep={(d) => patchItem(i, { reps: stepNumber(it.reps, d, REPS_MIN, REPS_MAX, 8) })}
+                      />
+                      <MiniStepper
+                        title="重量"
+                        label="kg"
+                        value={it.weightKg}
+                        placeholder="自重"
+                        onChange={(v) => patchItem(i, { weightKg: v })}
+                        onStep={(d) => patchItem(i, { weightKg: stepWeight(it.weightKg, d * WEIGHT_STEP) })}
+                        max={WEIGHT_MAX}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
 
-              <Card title="附加信息" subtitle="可选；时长与备注会和这条训练一起保存">
+              <V15Button p={v15} label="添加动作" icon="plus" variant="soft" onPress={openNewAction} style={{ marginTop: 10 }} />
+
+              <V15Section p={v15} title="附加信息" right="可选" />
+              <V15Card p={v15}>
                 <MiniStepper
-                  colors={colors}
                   title="时长"
                   label="分"
                   value={durationMin}
@@ -531,37 +475,38 @@ export default function WorkoutAddScreen() {
                   max={DURATION_MAX_MIN}
                 />
                 <View style={styles.noteHead}>
-                  <ThemedIcon name="document-text-outline" size={15} color={colors.textMuted} />
-                  <Text style={styles.noteLabel}>备注</Text>
-                  <Text style={styles.noteCount}>
-                    {note.length}/{NOTE_MAX}
-                  </Text>
+                  <Icon name="clock" size={14} weight="regular" color={v15.sub} />
+                  <Text style={[styles.noteLabel, { color: v15.ink2 }]}>备注</Text>
+                  <Text style={[styles.noteCount, { color: v15.sub }]}>{note.length}/{NOTE_MAX}</Text>
                 </View>
                 <TextInput
-                  style={styles.noteInput}
+                  style={[styles.noteInput, { backgroundColor: v15.card2, borderColor: v15.line, color: v15.ink }]}
                   value={note}
                   onChangeText={setNote}
                   placeholder="今天的状态、动作感受、下次要调整的重量…"
-                  placeholderTextColor={colors.textFaint}
+                  placeholderTextColor={v15.faint}
                   multiline
                   maxLength={NOTE_MAX}
                   textAlignVertical="top"
                 />
-              </Card>
-            </ScrollView>
+              </V15Card>
 
-            {/* 底部固定保存：长表单滚到哪都能一键提交，且被 KeyboardAvoidingView 抬到键盘上方 */}
-            <View style={[styles.footer, { paddingBottom: footerPadding }]}>
-              <PressButton
-                label={isEdit ? "保存修改" : "保存训练"}
-                loadingLabel="保存中…"
+              <V15Button
+                p={v15}
+                label={isEdit ? "保存修改" : "保存训练记录"}
+                icon="check"
                 loading={saving}
-                icon="save-outline"
                 onPress={() => void save()}
+                style={{ marginTop: 16 }}
               />
-            </View>
-          </>
-        )}
+              <V15Button p={v15} label="返回训练" variant="ghost" onPress={goBack} style={{ marginTop: 8 }} />
+
+              <V15Note p={v15}>保存后会更新本周负荷、训练构成与最近训练；训练记录不产生 kcal。</V15Note>
+            </>
+          )}
+
+          <View style={{ height: layout.wide ? 18 : 10 }} />
+        </V15Scroll>
       </KeyboardAvoidingView>
     </View>
   );
@@ -572,7 +517,6 @@ export default function WorkoutAddScreen() {
  * 每个字段独占一行 —— 三列并排时「组 的 +」与「次 的 −」只隔 8pt，看起来像一对加减号。
  */
 function MiniStepper({
-  colors,
   title,
   label,
   value,
@@ -581,10 +525,7 @@ function MiniStepper({
   placeholder,
   max = 9999,
 }: {
-  colors: ThemeColors;
-  /** 字段名（组数 / 次数 / 重量 / 时长） */
   title: string;
-  /** 单位（组 / 次 / kg / 分） */
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -592,257 +533,75 @@ function MiniStepper({
   placeholder?: string;
   max?: number;
 }) {
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const p = useV15();
   return (
-    <View style={styles.miniStepper}>
-      <Text style={styles.miniTitle}>{title}</Text>
+    <View style={[stepperStyles.row, { backgroundColor: p.card2 }]}>
+      <Text style={[stepperStyles.title, { color: p.ink2 }]} numberOfLines={1}>{title}</Text>
       <Pressable
-        style={styles.miniBtn}
+        style={[stepperStyles.btn, { backgroundColor: p.card, borderColor: p.line }]}
         hitSlop={{ top: 5, bottom: 5 }}
         onPress={() => onStep(-1)}
+        accessibilityRole="button"
         accessibilityLabel={"减少" + title}
       >
-        <ThemedIcon name="remove" size={16} color={colors.primary} />
+        <Icon name="minus" size={15} weight="bold" color={p.orange} />
       </Pressable>
       <TextInput
-        style={styles.miniInput}
+        style={[stepperStyles.input, { color: p.ink }]}
         value={value}
         onChangeText={(t) => {
           const cleaned = t.replace(/[^0-9.]/g, "").slice(0, 7);
           const n = Number(cleaned);
-          if (cleaned !== "" && Number.isFinite(n) && n > max) return;
-          onChange(cleaned);
+          if (cleaned === "" || (Number.isFinite(n) && n <= max)) onChange(cleaned);
         }}
+        placeholder={placeholder}
+        placeholderTextColor={p.faint}
         keyboardType="decimal-pad"
-        placeholder={placeholder ?? "0"}
-        placeholderTextColor={colors.textFaint}
+        accessibilityLabel={title}
       />
-      <Text style={styles.miniUnit}>{label}</Text>
+      <Text style={[stepperStyles.unit, { color: p.sub }]}>{label}</Text>
       <Pressable
-        style={styles.miniBtn}
+        style={[stepperStyles.btn, { backgroundColor: p.card, borderColor: p.line }]}
         hitSlop={{ top: 5, bottom: 5 }}
         onPress={() => onStep(1)}
+        accessibilityRole="button"
         accessibilityLabel={"增加" + title}
       >
-        <ThemedIcon name="add" size={16} color={colors.primary} />
+        <Icon name="plus" size={15} weight="bold" color={p.orange} />
       </Pressable>
     </View>
   );
 }
 
-const makeStyles = (colors: ThemeColors) =>
+const stepperStyles = StyleSheet.create({
+  row: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 14 },
+  title: { width: 34, ...typography.caption, fontWeight: "800" },
+  btn: { width: 34, height: 34, borderRadius: 11, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  input: { flex: 1, minWidth: 44, textAlign: "center", paddingVertical: 7, ...typography.callout, fontWeight: "900", borderRadius: 10, fontVariant: ["tabular-nums"] },
+  unit: { width: 20, ...typography.caption, fontWeight: "700" },
+});
+
+const makeStyles = (p: ReturnType<typeof useV15>) =>
   StyleSheet.create({
-    /**
-     * 真机过渡修复（同 workout.tsx / trends.tsx）：推入页 contentStyle 是透明，
-     * 页面必须自己铺不透明底色，否则推入动画期间上一屏会透出来。
-     */
-    root: { flex: 1, backgroundColor: colors.canvas },
-    body: { flex: 1 },
-    scroll: { flex: 1 },
-    content: { padding: 16, paddingTop: 6, gap: 12, paddingBottom: 20 },
-    pickerWrap: { flex: 1, backgroundColor: colors.canvas },
-    center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-    centerText: { ...typography.callout, color: colors.textMuted, marginTop: 10 },
-
-    hero: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      padding: 14,
-      borderRadius: 18,
-      backgroundColor: colors.primarySoft,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.primary,
-    },
-    heroIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 15,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceStrong,
-    },
-    heroText: { flex: 1, minWidth: 0, gap: 2 },
-    heroTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
-    heroHint: { ...typography.caption, color: colors.textMuted, fontVariant: ["tabular-nums"] },
-    heroBadge: {
-      minWidth: 36,
-      height: 36,
-      paddingHorizontal: 9,
-      borderRadius: 13,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceStrong,
-    },
-    heroBadgeText: { ...typography.body, fontWeight: "900", color: colors.primary, fontVariant: ["tabular-nums"] },
-
-    inputShell: {
-      minHeight: 48,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 9,
-      paddingHorizontal: 13,
-      borderRadius: 15,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    input: {
-      flex: 1,
-      minWidth: 0,
-      paddingVertical: 11,
-      fontSize: typography.callout.fontSize,
-      color: colors.text,
-    },
-    dateRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    dateChip: {
-      minHeight: 34,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      paddingHorizontal: 12,
-      borderRadius: 999,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    dateChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-    dateChipText: { ...typography.caption, color: colors.textMuted, fontWeight: "700" },
-    dateChipTextActive: { color: colors.primary, fontWeight: "800" },
-    dateFoot: { flexDirection: "row", alignItems: "center", gap: 6 },
-    dateHint: { ...typography.caption, color: colors.textMuted, fontVariant: ["tabular-nums"] },
-
-    actionRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 9,
-      paddingVertical: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    itemIndex: {
-      width: 32,
-      height: 32,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.primarySoft,
-    },
-    itemIndexText: { ...typography.caption, fontWeight: "900", color: colors.primary, fontVariant: ["tabular-nums"] },
-    exercisePick: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
-    exercisePickPressed: { opacity: 0.65 },
-    exercisePickTextWrap: { flex: 1, minWidth: 0, gap: 1 },
-    exercisePickText: { ...typography.callout, fontWeight: "800", color: colors.text },
-    exercisePickMeta: { ...typography.caption, color: colors.textMuted, fontVariant: ["tabular-nums"] },
-    exercisePickPlaceholder: { color: colors.textFaint, fontWeight: "700" },
-    removeBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.dangerSoft,
-    },
-    addActionCard: {
-      minHeight: 60,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 11,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      borderRadius: 17,
-      backgroundColor: colors.primarySoft,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.primary,
-      borderStyle: "dashed",
-    },
-    addActionIcon: {
-      width: 38,
-      height: 38,
-      borderRadius: 13,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceStrong,
-    },
-    addActionText: { flex: 1, minWidth: 0, gap: 1 },
-    addActionTitle: { ...typography.callout, fontWeight: "800", color: colors.primary },
-    addActionHint: { ...typography.caption, color: colors.textMuted },
-
-    detailBlock: {
-      gap: 9,
-      padding: 12,
-      borderRadius: 16,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    detailHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-    detailIndex: {
-      width: 22,
-      height: 22,
-      borderRadius: 8,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceStrong,
-    },
-    detailIndexText: { ...typography.micro, fontWeight: "900", color: colors.primary, fontVariant: ["tabular-nums"] },
-    detailName: { flex: 1, minWidth: 0, ...typography.callout, fontWeight: "800", color: colors.text },
-    detailVolume: { ...typography.caption, fontWeight: "700", color: colors.primary, fontVariant: ["tabular-nums"] },
-    stepperStack: { gap: 8 },
-
-    miniStepper: {
-      minHeight: 48,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 9,
-      paddingHorizontal: 9,
-      paddingVertical: 6,
-      borderRadius: 15,
-      backgroundColor: colors.surfaceStrong,
-    },
-    miniTitle: { width: 34, ...typography.caption, fontWeight: "800", color: colors.textSecondary },
-    miniBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 11,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceMuted,
-    },
-    miniInput: {
-      flex: 1,
-      minWidth: 44,
-      textAlign: "center",
-      paddingVertical: 8,
-      ...typography.callout,
-      fontWeight: "900",
-      color: colors.text,
-      backgroundColor: colors.surfaceMuted,
-      borderRadius: 11,
-      fontVariant: ["tabular-nums"],
-    },
-    miniUnit: { width: 20, ...typography.caption, color: colors.textMuted, fontWeight: "700" },
-
-    noteHead: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 2 },
-    noteLabel: { ...typography.callout, fontWeight: "800", color: colors.textSecondary },
-    noteCount: { ...typography.micro, color: colors.textMuted, marginLeft: "auto", fontVariant: ["tabular-nums"] },
-    noteInput: {
-      minHeight: 104,
-      paddingHorizontal: 13,
-      paddingVertical: 11,
-      borderRadius: 15,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      ...typography.callout,
-      color: colors.text,
-    },
-
-    footer: {
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      backgroundColor: colors.canvas,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
-    },
+    center: { alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 18 },
+    centerTitle: { ...typography.headline, fontWeight: "800" },
+    centerText: { ...typography.meta, textAlign: "center" },
+    label: { ...typography.micro, fontWeight: "700", marginBottom: 6 },
+    nameInput: { height: 52, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12 },
+    nameText: { flex: 1, ...typography.callout, fontWeight: "700", paddingVertical: 0 },
+    dateRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    dateChip: { minWidth: 50, minHeight: 36, borderRadius: 11, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
+    dateChipText: { ...typography.micro, fontWeight: "700" },
+    itemCard: { borderWidth: 1, borderRadius: 20, padding: 12, marginBottom: 9 },
+    itemHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+    itemPick: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9 },
+    itemIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    itemName: { ...typography.callout, fontWeight: "800" },
+    itemMeta: { ...typography.micro, fontWeight: "500", marginTop: 1 },
+    removeBtn: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+    stepperStack: { gap: 7, marginTop: 10 },
+    noteHead: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12 },
+    noteLabel: { ...typography.callout, fontWeight: "800" },
+    noteCount: { ...typography.micro, marginLeft: "auto", fontVariant: ["tabular-nums"] },
+    noteInput: { minHeight: 96, marginTop: 7, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, borderWidth: 1, ...typography.callout },
   });

@@ -210,7 +210,7 @@ export function TodayDayArc({
         accessibilityLabel="开始 25 分钟专注"
       >
         <Text style={styles.ctaText}>开始 25 分钟专注</Text>
-        <Icon name="chevron" size={ICON_SIZE.sm} weight="bold" color={colors.surface} />
+        <Icon name="chevron" size={ICON_SIZE.sm} weight="bold" color="#FFFFFF" />
       </Pressable>
     </View>
   );
@@ -264,9 +264,9 @@ const makeStyles = (colors: ThemeColors) =>
       marginTop: spacing.md,
       paddingHorizontal: spacing.lg,
       borderRadius: radius.control,
-      backgroundColor: colors.text,
+      backgroundColor: colors.primary,
       ...shadows.card,
     },
     ctaPressed: { opacity: 0.88 },
-    ctaText: { ...typography.callout, fontWeight: "600", color: colors.surface },
+    ctaText: { ...typography.callout, fontWeight: "700", color: "#FFFFFF" },
   });

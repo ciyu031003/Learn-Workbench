@@ -28,6 +28,12 @@ import { INITIAL_OPEN_GROUPS, MEALS, type ViewMode } from "./constants";
 export interface NutritionScreenInput {
   /** 初始日期（从趋势页 ?date= 带进来；非法值由屏幕层回落今天） */
   initialDate: string;
+  /** 全屏添加页：即使没有打开 BottomSheet 也允许搜营养库 */
+  searchEnabled?: boolean;
+  /** 全屏添加页：进入时预选餐次 */
+  initialMeal?: MealKind;
+  /** 保存成功后的回调（全屏添加页用它返回上一屏） */
+  onSaved?: () => void;
 }
 
 /**
@@ -39,7 +45,7 @@ const EMPTY_SUMMARY_MAP: Record<string, DaySummaryRow> = {};
 /** 带使用频次的常用食物（recent 排序接口会多回 times/lastUsed，Food 类型里没有） */
 type RecentFood = Food & { times?: number; lastUsed?: string | null };
 
-export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
+export function useNutritionScreen({ initialDate, searchEnabled = false, initialMeal, onSaved }: NutritionScreenInput) {
   const token = useAppStore((s) => s.token);
 
   const { today: todayKey, yesterday: yesterdayKey } = useMemo(() => todayAndYesterday(), []);
@@ -81,7 +87,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
   const [sheetOpen, setSheetOpen] = useState(false);
   /** recent 排序接口会多带 times/lastUsed，用来区分「以往添加过的」与「食物库里的」 */
   const [foods, setFoods] = useState<RecentFood[]>([]);
-  const [meal, setMeal] = useState<MealKind>("lunch");
+  const [meal, setMeal] = useState<MealKind>(initialMeal ?? "lunch");
   /**
    * v1.33.0：「添加 <餐次>」按钮的文案随**当前时间段**自动变化（早餐/午餐/晚餐/加餐）。
    * 只在"跨段"时 setState —— 每 30s 校准一次，不跨段就不触发重渲染。
@@ -387,11 +393,13 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
         await saveOutbox(next);
         haptics.success();
         closeSheet();
+        onSaved?.();
         if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
         return;
       }
       haptics.success();
       closeSheet();
+      onSaved?.();
       await load();
     } finally {
       setSaving(false);
@@ -399,7 +407,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
   };
 
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!sheetOpen && !searchEnabled) return;
     void (async () => {
       try {
         // 优先按「最近使用/频次」排序（v3 M4）；v6 P1-2 再叠加当前餐次：
@@ -414,7 +422,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
         // 忽略
       }
     })();
-  }, [sheetOpen, meal, headers]);
+  }, [sheetOpen, searchEnabled, meal, headers]);
 
   /**
    * v6 P1-3：营养基准库模糊搜索（300ms 防抖 + 只认最新一次响应）。
@@ -423,7 +431,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
   useEffect(() => {
     const q = foodQuery.trim();
     let alive = true;
-    if (!sheetOpen || q.length === 0) {
+    if ((!sheetOpen && !searchEnabled) || q.length === 0) {
       // 清空放到异步回调里：effect 体内同步 setState 会触发级联渲染（react-hooks/set-state-in-effect）
       const idle = setTimeout(() => {
         if (alive) setDbItems([]);
@@ -454,7 +462,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
       alive = false;
       clearTimeout(timer);
     };
-  }, [foodQuery, sheetOpen, meal, headers]);
+  }, [foodQuery, sheetOpen, searchEnabled, meal, headers]);
 
   /** 贴纸墙数据（v3 M9）：近 30 天记录里出现过的食物 + 次数 */
   const stickers = useMemo(() => {
@@ -638,11 +646,11 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
   }, []);
 
   /** 从常用食物添加：默认 1 份，立即入账（v3 M4 一点即记）；离线时进发件箱 */
-  const quickAdd = async (food: Food) => {
+  const quickAdd = async (food: Food, mealOverride?: MealKind) => {
     const localId = nextLocalId();
     const body: MealEntryInput = {
       date,
-      meal,
+      meal: mealOverride ?? meal,
       name: food.name,
       amount: 1,
       unit: food.unit,
@@ -721,6 +729,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
         await saveOutbox(next);
         haptics.success();
         closeSheet();
+        onSaved?.();
         if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
         return;
       }
@@ -741,6 +750,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
       }
       haptics.success();
       closeSheet();
+      onSaved?.();
       await load();
     } finally {
       setSaving(false);

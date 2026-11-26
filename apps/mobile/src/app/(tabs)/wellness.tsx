@@ -6,6 +6,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenBlurTarget } from "@/components/screen-blur-target";
+import { PageWash } from "@/components/demo/page-wash";
 import { GrowthDashboard } from "@/components/growth/growth-dashboard";
 import { GrowthOverviewSkeleton } from "@/components/growth/growth-skeleton";
 import { useGrowthData } from "@/components/growth/use-growth-data";
@@ -35,6 +36,7 @@ export default function WellnessScreen() {
 
   return (
     <ScreenBlurTarget style={styles.root}>
+      <PageWash tone="growth" />
       <ScreenHeaderStickyBar title="成长洞察" scrollY={headerScroll.scrollY} />
       <Animated.ScrollView
         ref={wellnessScrollRef}

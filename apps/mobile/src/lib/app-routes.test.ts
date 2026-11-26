@@ -64,6 +64,7 @@ const EXPECTED_ROUTES = [
   "/logs",
   "/market",
   "/nutrition",
+  "/nutrition-add",
   "/phase/[id]",
   "/quiz",
   "/quiz/408",
@@ -83,6 +84,7 @@ const EXPECTED_ROUTES = [
   "/settings",
   // v2.3：睡眠详情页（健康页睡眠卡 / 指标格进入；非 Tab）
   "/sleep",
+  "/sleep-add",
   "/sports-card",
   "/study-stats",
   "/tasks",

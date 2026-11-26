@@ -6,6 +6,7 @@ import { BriefcaseIcon } from "phosphor-react-native/src/icons/Briefcase";
 import { LeafIcon } from "phosphor-react-native/src/icons/Leaf";
 import { UserCircleIcon } from "phosphor-react-native/src/icons/UserCircle";
 import { PlusIcon } from "phosphor-react-native/src/icons/Plus";
+import { MinusIcon } from "phosphor-react-native/src/icons/Minus";
 import { XIcon } from "phosphor-react-native/src/icons/X";
 import { BellIcon } from "phosphor-react-native/src/icons/Bell";
 import { BellRingingIcon } from "phosphor-react-native/src/icons/BellRinging";
@@ -44,7 +45,18 @@ import { FlameIcon } from "phosphor-react-native/src/icons/Flame";
 import { TimerIcon } from "phosphor-react-native/src/icons/Timer";
 import { CheckIcon } from "phosphor-react-native/src/icons/Check";
 import { CaretRightIcon } from "phosphor-react-native/src/icons/CaretRight";
+import { CaretLeftIcon } from "phosphor-react-native/src/icons/CaretLeft";
 import { CaretDownIcon } from "phosphor-react-native/src/icons/CaretDown";
+import { LightningIcon } from "phosphor-react-native/src/icons/Lightning";
+import { ChartBarIcon } from "phosphor-react-native/src/icons/ChartBar";
+import { BedIcon } from "phosphor-react-native/src/icons/Bed";
+import { PlayIcon } from "phosphor-react-native/src/icons/Play";
+import { TrophyIcon } from "phosphor-react-native/src/icons/Trophy";
+import { PulseIcon } from "phosphor-react-native/src/icons/Pulse";
+import { HeartIcon } from "phosphor-react-native/src/icons/Heart";
+import { ClockIcon } from "phosphor-react-native/src/icons/Clock";
+import { CameraIcon } from "phosphor-react-native/src/icons/Camera";
+import { ShareNetworkIcon } from "phosphor-react-native/src/icons/ShareNetwork";
 
 /**
  * Phosphor 图标系统（V7 设计语言）。
@@ -87,6 +99,7 @@ const ICONS = {
   growth: LeafIcon,
   me: UserCircleIcon,
   plus: PlusIcon,
+  minus: MinusIcon,
   close: XIcon,
   bell: BellIcon,
   bellRing: BellRingingIcon,
@@ -125,7 +138,18 @@ const ICONS = {
   timer: TimerIcon,
   check: CheckIcon,
   chevron: CaretRightIcon,
+  chevronLeft: CaretLeftIcon,
   chevronDown: CaretDownIcon,
+  bolt: LightningIcon,
+  bar: ChartBarIcon,
+  bed: BedIcon,
+  play: PlayIcon,
+  trophy: TrophyIcon,
+  pulse: PulseIcon,
+  heart: HeartIcon,
+  clock: ClockIcon,
+  camera: CameraIcon,
+  share: ShareNetworkIcon,
 } as const;
 
 export type IconName = keyof typeof ICONS;

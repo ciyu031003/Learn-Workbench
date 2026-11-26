@@ -14,7 +14,7 @@ import { withAlpha } from "@/lib/chart-math";
 export const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     /* ---------------- 页面骨架 ---------------- */
-    scroll: { flex: 1, backgroundColor: colors.canvas },
+    scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: 18, gap: 16 },
     /** 区块标题（SectionTitle 自带 21 的上间距，页面里改用紧凑版，靠 content 的 gap 分层） */
     sectionTitle: { marginTop: 4, marginBottom: 11 },

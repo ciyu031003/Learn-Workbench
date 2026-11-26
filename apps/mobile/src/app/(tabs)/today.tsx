@@ -20,6 +20,7 @@ import { haptics } from "@/lib/haptics";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
 import { useAppStore } from "@/store/app-store";
 import { ScreenBlurTarget } from "@/components/screen-blur-target";
+import { PageWash } from "@/components/demo/page-wash";
 import { useTheme } from "@/theme";
 import { typography } from "@/theme/tokens";
 
@@ -115,6 +116,7 @@ export default function TodayScreen() {
 
   return (
     <ScreenBlurTarget style={styles.root}>
+      <PageWash tone="today" />
       <Animated.ScrollView
         ref={todayScrollRef}
         refreshControl={<RefreshControl {...todayRefresh} />}
@@ -171,6 +173,7 @@ export default function TodayScreen() {
         <TodayThreeThings
           tasks={todayTasks}
           todayDone={todayDone}
+          total={todayTasks.length}
           pendingHabits={pendingHabits}
           reduced={reduced}
           onToggleTask={toggleTaskDone}

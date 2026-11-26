@@ -9,6 +9,8 @@ import { CareerDecisionMatrix } from "@/components/career/career-decision-matrix
 import { CareerFunnel } from "@/components/career/career-funnel";
 import { CareerGapBars } from "@/components/career/career-gap-bars";
 import { CareerNorthStar } from "@/components/career/career-north-star";
+import { CareerPageHead } from "@/components/career/career-page-head";
+import { CareerDeckIntro } from "@/components/career/career-deck-intro";
 import { CareerWeekActions } from "@/components/career/career-week-actions";
 import { useCareerScreen } from "@/components/career/use-career-screen";
 import { PressableScale } from "@/components/pressable-scale";
@@ -16,6 +18,7 @@ import { InlineToast, TOAST_DEFAULT_LIFE_MS } from "@/components/toast";
 import { Icon, ICON_SIZE } from "@/components/ui/icon";
 import { SectionTitle } from "@/components/v2/section-title";
 import { ScreenBlurTarget } from "@/components/screen-blur-target";
+import { PageWash } from "@/components/demo/page-wash";
 import { useTheme } from "@/theme";
 
 /**
@@ -60,6 +63,7 @@ export default function CareerScreen() {
 
   return (
     <ScreenBlurTarget style={styles.root}>
+      <PageWash tone="career" />
       <Animated.ScrollView
         ref={careerScrollRef}
         refreshControl={<RefreshControl {...careerRefresh} />}
@@ -67,9 +71,26 @@ export default function CareerScreen() {
         contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ① 目标方向：画像派生标题 + 匹配度 + 技能命中 / 薪资 / 城市三条细进度条 */}
+        {/* 页头：eyebrow + 目标方向标题 + 搜索 */}
+        <Animated.View entering={entrance(0)}>
+          <CareerPageHead title={direction.title} subtitle={direction.hint} />
+        </Animated.View>
+
+        {/* ① 目标方向：匹配度 + 技能命中 / 薪资 / 城市三条细进度条 */}
         <Animated.View entering={entrance(0)}>
           <CareerNorthStar direction={direction} />
+        </Animated.View>
+
+        {/* 滑动选岗：卡片堆入口 */}
+        <SectionTitle
+          title="滑动选岗"
+          right={<Text style={styles.sectionMeta}>{decisionRows.length} 个待看</Text>}
+          actionLabel="开始"
+          onAction={() => router.push("/job-deck" as never)}
+          style={styles.section}
+        />
+        <Animated.View entering={entrance(1)}>
+          <CareerDeckIntro />
         </Animated.View>
 
         {/* ② 岗位决策矩阵：radar.top 前 4 个，表格式（不是卡片流） */}

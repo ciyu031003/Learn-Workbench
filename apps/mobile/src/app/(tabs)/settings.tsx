@@ -675,22 +675,6 @@ export default function SettingsScreen() {
 
       <Animated.View entering={entrance(0)}>
         <View style={styles.hero}>
-          <Image
-            source={require("../../../assets/images/scene-hero.jpg")}
-            style={[StyleSheet.absoluteFill, styles.heroImgFill]}
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-          />
-          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Defs>
-              <LinearGradient id="meHeroScrim" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={colors.focusCanvas} stopOpacity={0.34} />
-                <Stop offset="0.42" stopColor={colors.focusCanvas} stopOpacity={0.2} />
-                <Stop offset="1" stopColor={colors.focusCanvas} stopOpacity={0.82} />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#meHeroScrim)" />
-          </Svg>
           <View style={styles.heroInfo}>
             <Pressable
               onPress={() => {
@@ -737,6 +721,16 @@ export default function SettingsScreen() {
                     登录后自动同步到云端
                   </Text>
                 )}
+                <View style={styles.heroChips}>
+                  <View style={[styles.heroChip, token ? styles.heroChipGreen : styles.heroChipBlue]}>
+                    <Text style={[styles.heroChipText, token ? styles.heroChipTextGreen : styles.heroChipTextBlue]}>
+                      {token ? "已登录" : "未登录"}
+                    </Text>
+                  </View>
+                  <View style={styles.heroChip}>
+                    <Text style={styles.heroChipText}>deviceId 已绑定</Text>
+                  </View>
+                </View>
               </View>
             </Pressable>
             <View style={styles.heroActions}>
@@ -1486,7 +1480,7 @@ const makeStyles = (colors: ThemeColors) =>
     content: { paddingHorizontal: 18 },
 
     pageHead: { paddingTop: spacing.sm, paddingBottom: spacing.md, gap: 3 },
-    pageEyebrow: { ...typography.eyebrow, letterSpacing: 1.1, color: colors.accent },
+    pageEyebrow: { ...typography.eyebrow, fontWeight: "800", letterSpacing: 1.2, color: colors.primary },
     pageTitle: { ...typography.pageTitle, color: colors.text },
 
     /* ① 个人卡（实景带高度对齐今日页的实景带 158，暗场保证白字可读） */
@@ -1494,16 +1488,15 @@ const makeStyles = (colors: ThemeColors) =>
     heroImgFill: { width: "100%", height: "100%" },
     /* 对齐 demo .me-hero：高 146、圆角 24（旧值 158/22） */
     hero: {
-      height: 146,
-      borderRadius: 24,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: 14,
       overflow: "hidden",
       ...shadows.card,
     },
     heroInfo: {
-      position: "absolute",
-      left: 15,
-      right: 15,
-      bottom: 13,
       flexDirection: "row",
       alignItems: "center",
       gap: 11,
@@ -1544,9 +1537,16 @@ const makeStyles = (colors: ThemeColors) =>
     },
     heroAvatarText: { ...typography.hero, fontWeight: "700", color: "#FFFFFF" },
     heroText: { flex: 1, minWidth: 0, gap: 3 },
-    heroName: { ...typography.headline, fontWeight: "700", color: "#FFFFFF" },
-    heroSub: { ...typography.meta, color: "rgba(255,255,255,0.82)" },
-    heroSubLink: { ...typography.meta, fontWeight: "600", color: "rgba(255,255,255,0.92)" },
+    heroName: { ...typography.headline, fontWeight: "700", color: colors.text },
+    heroSub: { ...typography.meta, color: colors.textMuted },
+    heroSubLink: { ...typography.meta, fontWeight: "600", color: colors.primary },
+    heroChips: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" },
+    heroChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
+    heroChipBlue: { backgroundColor: colors.primarySoft, borderColor: "transparent" },
+    heroChipGreen: { backgroundColor: colors.successSoft, borderColor: "transparent" },
+    heroChipText: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    heroChipTextBlue: { color: colors.primary },
+    heroChipTextGreen: { color: colors.success },
     streakPill: {
       flexDirection: "row",
       alignItems: "center",
@@ -1557,18 +1557,18 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.accent,
       flexShrink: 0,
     },
-    streakText: { ...typography.micro, fontWeight: "700", color: colors.focusCanvas },
+    streakText: { ...typography.micro, fontWeight: "700", color: "#FFFFFF" },
     heroActions: { alignItems: "flex-end", gap: 7, flexShrink: 0 },
     heroAuthCta: {
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      minHeight: 30,
-      paddingHorizontal: 11,
-      borderRadius: radius.pill,
-      backgroundColor: "rgba(255,255,255,0.92)",
+      minHeight: 32,
+      paddingHorizontal: 12,
+      borderRadius: radius.control,
+      backgroundColor: colors.primary,
     },
-    heroAuthText: { ...typography.micro, fontWeight: "700", color: colors.focusCanvas },
+    heroAuthText: { ...typography.micro, fontWeight: "700", color: "#FFFFFF" },
 
     /* 状态提示条（保留原身份卡里的操作反馈） */
     msgBar: {

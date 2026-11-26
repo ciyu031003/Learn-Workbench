@@ -1,81 +1,71 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, View } from "react-native";
-import Animated from "react-native-reanimated";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { takeNavPendingParams } from "@/lib/nav-pending";
-import { useTabBarSpace } from "@/lib/use-tab-bar-space";
-import { useTheme } from "@/theme";
-import { spacing } from "@/theme/tokens";
 import { isDateKey } from "@/lib/nutrition-stats";
 import { todayAndYesterday } from "@/lib/nutrition-views";
 import { makeNutritionStyles } from "@/components/nutrition/nutrition-styles";
 import { AddFoodSheet } from "@/components/nutrition/add-food-sheet";
-import { NutritionBody } from "@/components/nutrition/nutrition-body";
-import { NutritionOverview } from "@/components/nutrition/nutrition-overview";
 import { NutritionSheetsA } from "@/components/nutrition/nutrition-sheets-a";
 import { NutritionSheetsB } from "@/components/nutrition/nutrition-sheets-b";
+import { V15NutritionDashboard } from "@/components/nutrition/v15-nutrition-dashboard";
 import { useNutritionScreen } from "@/lib/nutrition/use-nutrition-screen";
+import { useV15 } from "@/components/v15/v15-theme";
+import { V15Scroll } from "@/components/v15/v15-ui";
+import { useTheme } from "@/theme";
+import type { MealKind } from "@learn-workbench/shared/schemas";
 
 /**
- * 今日饮食（S6-4 拆分后）：本文件只做「主题 + 导航 + 组合」。
- * 数据层：lib/nutrition/use-nutrition-screen.ts；展示层：components/nutrition/*；
- * 纯逻辑：lib/nutrition/{derive,portion-memo,constants}.ts（均有单测）。
+ * 今日饮食（V15）。
+ *
+ * 展示层完全按 demo v12 renderNutrition 重做：周条 → 能量环 → 餐次卡 → 7 天热量
+ * → 饮水 → 常吃 → 洞察。数据 / 发件箱 / 编辑 / 目标 / 饮水逻辑仍沿用
+ * use-nutrition-screen，未改业务口径。新增食物改为全屏 /nutrition-add。
  */
 export default function NutritionScreen() {
   const { colors } = useTheme();
+  const v15 = useV15();
   const styles = useMemo(() => makeNutritionStyles(colors), [colors]);
   const params = useLocalSearchParams<{ stats?: string; date?: string }>();
-  // v1.51 防参数冻结：trends 选日期 push /nutrition?date= 时，同名路由复用实例的 params
-  // 冻结在首次值——10-31 加的 follow-effect 跟的是 initialDate prop，params 不变它就不触发。
-  // 改为场外通道（lib/nav-pending.ts）：跳转方 push 前登记 date，这里每次聚焦优先消费；
-  // 空登记（{}，如 wellness hub 的无参推送）也生效，回落到「今天」。
   const [override, setOverride] = useState<Record<string, string> | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       const pending = takeNavPendingParams("nutrition");
       if (pending) setOverride(pending);
     }, [])
   );
+
   const effective = override ?? params;
   const { today: todayKey } = useMemo(() => todayAndYesterday(), []);
   const initialDate = isDateKey(effective.date) ? effective.date : todayKey;
   const model = useNutritionScreen({ initialDate });
-  const headerScroll = useLargeTitleHeader();
-  /** 子页（Stack push）底部只拿到 insets.bottom，可能是 0（3 键导航更高）；额外留 spacing.lg 呼吸位避免贴边 */
-  const tabBarSpace = useTabBarSpace(spacing.lg);
-  const { control } = usePullRefresh(model.load, { stickyHeader: true });
+  const { control } = usePullRefresh(model.load);
+  // 从全屏添加页返回时刷新（含首次进入；首轮重复请求无副作用）
+  useFocusRefresh(model.load);
 
-  useEffect(() => {
-    if (effective.stats === "1") router.replace("/trends" as never);
-  }, [effective.stats]);
+  const openAdd = useCallback(
+    (meal?: MealKind) => {
+      const nextMeal = meal ?? model.meal;
+      if (meal) model.setMeal(meal);
+      router.push({ pathname: "/nutrition-add", params: { date: model.date, meal: nextMeal } } as never);
+    },
+    [model]
+  );
+
+  const openTrends = useCallback(() => router.push("/trends" as never), []);
 
   return (
-    <View style={styles.root}>
-      <ScreenHeaderStickyBar title={model.isToday ? "今日饮食" : "饮食记录"} scrollY={headerScroll.scrollY} />
-      <Animated.ScrollView
-        onScroll={headerScroll.onScroll}
-        scrollEventThrottle={16}
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl {...control} />}
-      >
-        <ScreenHeaderLargeTitle
-          title={model.isToday ? "今日饮食" : "饮食记录"}
-          subtitle={
-            model.isToday
-              ? "已记录 " + model.entries.length + " 条 · 目标 " + model.target.kcal + " kcal"
-              : model.date + " · " + model.entries.length + " 条"
-          }
-        />
-        <NutritionOverview model={model} styles={styles} colors={colors} />
-        <NutritionBody model={model} styles={styles} colors={colors} />
-        <NutritionSheetsA model={model} styles={styles} colors={colors} />
-        <AddFoodSheet model={model} styles={styles} colors={colors} />
-        <NutritionSheetsB model={model} styles={styles} colors={colors} />
-      </Animated.ScrollView>
+    <View style={{ flex: 1, backgroundColor: v15.canvas }}>
+      <V15Scroll p={v15} refreshControl={<RefreshControl {...control} />}>
+        <V15NutritionDashboard model={model} onOpenAdd={openAdd} onOpenTrends={openTrends} />
+      </V15Scroll>
+
+      <NutritionSheetsA model={model} styles={styles} colors={colors} />
+      <AddFoodSheet model={model} styles={styles} colors={colors} />
+      <NutritionSheetsB model={model} styles={styles} colors={colors} />
     </View>
   );
 }

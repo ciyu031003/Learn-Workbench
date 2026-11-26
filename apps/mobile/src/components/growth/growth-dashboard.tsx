@@ -208,29 +208,45 @@ export function GrowthDashboard({
                 <Icon name="more" size={14} weight="bold" color={colors.textMuted} />
               </View>
             </View>
-            <View style={styles.macroChart}>
-              {Array.from({ length: 7 }).map((_, index) => {
-                const row = macros.rows[index];
-                const total = row ? row.proteinG + row.carbsG + row.fatG : 0;
-                const height = Math.max(6, (total / macroMax) * 78);
-                const proteinH = total > 0 ? (row.proteinG / total) * height : 0;
-                const carbsH = total > 0 ? (row.carbsG / total) * height : 0;
-                const fatH = total > 0 ? (row.fatG / total) * height : 0;
-                return (
-                  <View key={index} style={styles.macroCol}>
-                    <View style={[styles.macroBar, { height }]}>
-                      {total > 0 ? (
-                        <>
-                          <View style={{ height: fatH, backgroundColor: PURPLE }} />
-                          <View style={{ height: carbsH, backgroundColor: BLUE }} />
-                          <View style={{ height: proteinH, backgroundColor: ORANGE }} />
-                        </>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
+            {macros.rows.length === 0 ? (
+              <View style={styles.macroEmpty}>
+                <Text style={styles.macroEmptyTitle}>近 7 天还没有饮食记录</Text>
+                <Text style={styles.macroEmptyHint}>记录一餐后，这里会按天显示蛋白 / 碳水 / 脂肪的构成。</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.macroChart}>
+                  {Array.from({ length: 7 }).map((_, index) => {
+                    const row = macros.rows[index];
+                    const total = row ? row.proteinG + row.carbsG + row.fatG : 0;
+                    const height = total > 0 ? Math.max(10, (total / macroMax) * 78) : 8;
+                    const proteinH = total > 0 ? (row.proteinG / total) * height : 0;
+                    const carbsH = total > 0 ? (row.carbsG / total) * height : 0;
+                    const fatH = total > 0 ? (row.fatG / total) * height : 0;
+                    return (
+                      <View key={index} style={styles.macroCol}>
+                        <View style={[styles.macroBar, { height }, total === 0 && styles.macroBarEmpty]}>
+                          {total > 0 ? (
+                            <>
+                              <View style={{ height: fatH, backgroundColor: PURPLE }} />
+                              <View style={{ height: carbsH, backgroundColor: BLUE }} />
+                              <View style={{ height: proteinH, backgroundColor: ORANGE }} />
+                            </>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+                <View style={styles.macroDayRow}>
+                  {["一", "二", "三", "四", "五", "六", "日"].map((d, i) => (
+                    <Text key={d} style={styles.macroDay}>
+                      {d}
+                    </Text>
+                  ))}
+                </View>
+              </>
+            )}
             <View style={styles.macroLegend}>
               <Legend color={ORANGE} label="蛋白" value={`${macros.protein}g`} />
               <Legend color={BLUE} label="碳水" value={`${macros.carbs}g`} />
@@ -625,6 +641,12 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     macroCol: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
     macroBar: { width: "72%", borderRadius: 4, overflow: "hidden", justifyContent: "flex-end" },
     macroLegend: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
+    macroEmpty: { height: 84, marginTop: 12, borderRadius: 12, backgroundColor: colors.surfaceMuted, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
+    macroEmptyTitle: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
+    macroEmptyHint: { ...typography.micro, color: colors.textMuted, marginTop: 4, textAlign: "center" },
+    macroDayRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 7, paddingHorizontal: 0 },
+    macroDay: { ...typography.eyebrow, fontWeight: "500", color: colors.textFaint, flex: 1, textAlign: "center" },
+    macroBarEmpty: { backgroundColor: colors.chartTrack },
     legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
     legendDot: { width: 6, height: 6, borderRadius: 3 },
     legendLabel: { ...typography.micro, fontWeight: "500", color: colors.textMuted },

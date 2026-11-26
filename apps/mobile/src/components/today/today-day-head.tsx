@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Icon, ICON_SIZE } from "@/components/ui/icon";
 import { haptics } from "@/lib/haptics";
 import { TEXT_SCALE_POLICY } from "@/lib/text-scale";
@@ -34,10 +34,12 @@ export function TodayDayHead({
   onOpenNotifications: () => void;
 }) {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const compact = width < 360;
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.head}>
-      <View style={styles.dateCol}>
+      <View style={[styles.dateCol, compact && styles.dateColCompact]}>
         <Text style={styles.dateNum} {...TEXT_SCALE_POLICY.chrome}>
           {dateNum}
         </Text>
@@ -68,7 +70,7 @@ export function TodayDayHead({
             <View pointerEvents="none" style={styles.bellDot} />
           </Pressable>
         </View>
-        <Text style={styles.headline} accessibilityRole="header">
+        <Text style={styles.headline} accessibilityRole="header" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.82}>
           {greetFirst + "\n" + greetHeadline}
         </Text>
       </View>
@@ -80,6 +82,8 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     head: { flexDirection: "row", alignItems: "flex-start", gap: spacing.lg, marginTop: spacing.xs },
     dateCol: { width: 74, alignItems: "center" },
+    dateColCompact: { width: 62 },
+
     dateNum: { ...typography.dateNum, ...tabularNums, color: colors.text },
     month: {
       ...typography.eyebrow,

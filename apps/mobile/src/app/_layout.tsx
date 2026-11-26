@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Stack, usePathname } from "expo-router";
-import { InteractionManager, AppState, StatusBar as RNStatusBar, StyleSheet } from "react-native";
+import { InteractionManager, AppState, LogBox, StatusBar as RNStatusBar, StyleSheet } from "react-native";
 import * as Device from "expo-device";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -37,6 +37,18 @@ import {
   type StartupGateDecision,
 } from "@/lib/startup-gate";
 import * as SplashScreen from "expo-splash-screen";
+/** 开发期只屏蔽已知噪音（Reanimated web-only 依赖 / InteractionManager 弃用 / @noble exports 回退）；真实错误仍然照常弹出。 */
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    "[Reanimated] Dependencies should only be used on the web",
+    "InteractionManager has been deprecated",
+    "Attempted to import the module",
+    "ProgressBarAndroid has been extracted",
+    "SafeAreaView has been deprecated",
+    "Clipboard has been extracted",
+    "PushNotificationIOS has been extracted",
+  ]);
+}
 
 /**
  * 根布局（v17 阶段 B：导航栈重构）。
@@ -361,8 +373,12 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         {/* v1.47：记录/编辑训练从抽屉改为独立全屏页（动作明细太长，弹层放不下） */}
         <Stack.Screen name="workout-add" />
         <Stack.Screen name="nutrition" />
+        {/* V15：添加饮食升级为全屏页（营养库搜索 + 手动记录） */}
+        <Stack.Screen name="nutrition-add" options={{ animation: "slide_from_right" }} />
         {/* v2.3：睡眠详情页（评分环 / 分期 / 规律性 / 补录 / 数据源），从健康页睡眠卡进入 */}
         <Stack.Screen name="sleep" />
+        {/* V15：睡眠补录升级为全屏页（自动算时长/评分） */}
+        <Stack.Screen name="sleep-add" options={{ animation: "slide_from_right" }} />
         {/* v1.45：饮食趋势升级为独立全屏页（饮食/运动/训练负荷三段） */}
         <Stack.Screen name="trends" />
         <Stack.Screen name="sports-card" />
