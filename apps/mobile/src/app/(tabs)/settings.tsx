@@ -60,6 +60,7 @@ import { absoluteMediaUrl } from "@/lib/uploads";
 import { haptics } from "@/lib/haptics";
 import type { ThemeColors, ThemeMode } from "@/theme/tokens";
 import { ScreenBlurTarget } from "@/components/screen-blur-target";
+import { PageWash } from "@/components/demo/page-wash";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
 import { setMotionUserEnabled } from "@/theme/motion";
@@ -328,7 +329,7 @@ export default function SettingsScreen() {
 
   const [authOpen, setAuthOpen] = useState(false);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
-  const [heatOpen, setHeatOpen] = useState(false);
+  const [heatOpen, setHeatOpen] = useState(true);
   // 手动同步按钮的 loading 跟随引擎状态（v2.1：手动同步已并入引擎 single-flight）
   const busy = engine.syncing;
   const [msg, setMsg] = useState<string | null>(null);
@@ -655,6 +656,7 @@ export default function SettingsScreen() {
 
   return (
     <ScreenBlurTarget>
+      <PageWash tone="me" />
       <ScrollView
       ref={settingsScrollRef}
       style={styles.scroll}
@@ -662,6 +664,15 @@ export default function SettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* ① 顶部个人卡（实景带 + 暗场；本屏唯一"实景"主视觉） */}
+      <Animated.View entering={entrance(0)}>
+        <View style={styles.pageHead}>
+          <Text style={styles.pageEyebrow}>我的 · PERSONAL ARCHIVE</Text>
+          <Text style={styles.pageTitle} accessibilityRole="header">
+            学习者档案
+          </Text>
+        </View>
+      </Animated.View>
+
       <Animated.View entering={entrance(0)}>
         <View style={styles.hero}>
           <Image
@@ -1471,8 +1482,12 @@ export default function SettingsScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     /** v2.2.2：本页没有外层 View，ScrollView 就是根容器 → 直接垫 canvas（不再 transparent） */
-    scroll: { flex: 1, backgroundColor: colors.canvas },
+    scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: 18 },
+
+    pageHead: { paddingTop: spacing.sm, paddingBottom: spacing.md, gap: 3 },
+    pageEyebrow: { ...typography.eyebrow, letterSpacing: 1.1, color: colors.accent },
+    pageTitle: { ...typography.pageTitle, color: colors.text },
 
     /* ① 个人卡（实景带高度对齐今日页的实景带 158，暗场保证白字可读） */
     /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效 */

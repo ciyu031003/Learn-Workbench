@@ -1,10 +1,12 @@
 import { RefreshControl, ScrollView, Text } from "react-native";
 import { ScreenBlurTarget } from "@/components/screen-blur-target";
+import { PageWash } from "@/components/demo/page-wash";
 import Animated from "react-native-reanimated";
 
 import { LearnCabinHero } from "@/components/learn/learn-hero";
 import { LearnChapterRail } from "@/components/learn/learn-chapter-rail";
 import { LearnRhythm } from "@/components/learn/learn-rhythm";
+import { LearnAwardRail } from "@/components/learn/learn-award-rail";
 import { LearnShelfActions } from "@/components/learn/learn-shelf";
 import { LearnToolsSection } from "@/components/learn/learn-tools-section";
 import {
@@ -24,8 +26,9 @@ import { useLearnScreen } from "@/components/learn/use-learn-screen";
  *   ① 学习舱头部（eyebrow + 两行标题 + 84 环形进度 + 说明 + chips + 通栏 CTA）
  *   ② 章节树（垂直轨道：当前阶段主题，完成绿 / 在读蓝 + 光晕 / 未开始灰）
  *   ③ 学习节律（近 7 天柱状条 + 星期标签 + 学习成果数字一行）
- *   ④ 学习工具（2×2 行式卡：复习 / 题库 / 408 / 统计）
- *   ⑤ 底部引言
+ *   ④ 学习成就（3 张金属卡横向轨道）
+ *   ⑤ 学习工具（2×3 行式卡：复习 / 题库 / 408 / 统计 / 阶段路线 / 材料阅读）
+ *   ⑥ 底部引言
  * 章节管理（新建/编辑/删除阶段 · 新增主题 · 导入 MD）收敛成章节树下的一行管理条，
  * 沿用既有四个弹层；安全区仍由页面模型统一提供（headerTop / tabBarSpace）。
  */
@@ -97,6 +100,7 @@ export default function LearnScreen() {
 
   return (
     <ScreenBlurTarget>
+      <PageWash tone="learn" />
       <ScrollView
       ref={learnScrollRef}
       refreshControl={<RefreshControl {...learnRefresh} />}
@@ -137,8 +141,19 @@ export default function LearnScreen() {
         />
       </Animated.View>
 
-      {/* ④ 学习工具 */}
+      {/* ④ 学习成就（金属卡轨） */}
       <Animated.View entering={entrance(3)}>
+        <LearnAwardRail
+          streak={streak}
+          phaseDone={cabin.ring.done}
+          phaseTotal={cabin.ring.total}
+          phasePercent={cabin.ring.percent}
+          exam408PointCount={exam408PointCount}
+        />
+      </Animated.View>
+
+      {/* ⑤ 学习工具（2×3） */}
+      <Animated.View entering={entrance(4)}>
         <LearnToolsSection
           reviewStats={reviewStats}
           learningSummary={learningSummary}
@@ -146,10 +161,12 @@ export default function LearnScreen() {
           exam408ChapterCount={exam408ChapterCount}
           exam408PointCount={exam408PointCount}
           practiceAccuracy={practiceAccuracy}
+          phaseWeeks={cabin.weeksChip}
+          topicCount={cabin.ring.total}
         />
       </Animated.View>
 
-      {/* ⑤ 底部引言（纯装饰文案） */}
+      {/* ⑥ 底部引言（纯装饰文案） */}
       <Text style={styles.quote}>把今天的动作，记成明天的底气。</Text>
 
       <LearnCustomTopicSheet

@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   AppState,
   Dimensions,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { BlurView } from "expo-blur";
 import Animated, {
   interpolate,
   runOnJS,
@@ -21,6 +23,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useBlurTarget } from "@/components/blur-target";
 import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
 import { RichText } from "@/components/rich-text";
@@ -129,8 +132,9 @@ const SWITCH_OUT = 320;
 const SWITCH_IN = 26;
 
 export default function Exam408DrillScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const blurTarget = useBlurTarget();
   const bottomSpace = useTabBarSpace();
   const entrance = useScreenEntrance();
   const token = useAppStore((s) => s.token);
@@ -325,6 +329,10 @@ export default function Exam408DrillScreen() {
       { rotateZ: interpolate(panX.value, [-SWITCH_OUT, 0, SWITCH_OUT], [-7, 0, 7], "clamp") + "deg" },
       { rotateY: interpolate(flip.value, [0, 1], [180, 360]) + "deg" },
     ],
+  }));
+  // Gaussian blur transition driven by panX; no extra animation sites.
+  const blurStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(Math.abs(panX.value), [0, SWITCH_OUT * 0.32], [0, 1], "clamp"),
   }));
   /** 评级后整张卡滑出（左滑/淡出/右滑），动画结束再切下一张 */
   const cardSlideStyle = useAnimatedStyle(() => ({
@@ -995,6 +1003,8 @@ export default function Exam408DrillScreen() {
           </ScrollView>
         ) : card ? (
           <View style={[styles.cardSlot, { minHeight: layout.cardMinHeight }]}>
+            <View pointerEvents="none" style={[styles.stackBack, styles.stackBackFar]} />
+            <View pointerEvents="none" style={[styles.stackBack, styles.stackBackNear]} />
             <GestureDetector gesture={panGesture}>
               <Animated.View style={[styles.card, cardSlideStyle]}>
                 {/* 正面：题干（整面可点 → 显示答案） */}
@@ -1123,6 +1133,20 @@ export default function Exam408DrillScreen() {
                     <ThemedIcon name="eye-off-outline" size={15} color={colors.primary} />
                     <Text style={styles.collapseChipText}>收起</Text>
                   </PressableScale>
+                </Animated.View>
+
+                <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.blurLayer, blurStyle]}>
+                  {Platform.OS !== "android" || blurTarget ? (
+                    <BlurView
+                      intensity={28}
+                      tint={dark ? "dark" : "light"}
+                      blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+                      blurTarget={blurTarget ?? undefined}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  ) : (
+                    <View style={[StyleSheet.absoluteFill, styles.blurFallback]} />
+                  )}
                 </Animated.View>
               </Animated.View>
             </GestureDetector>
@@ -1423,6 +1447,17 @@ const makeStyles = (colors: ThemeColors) =>
 
     /* 卡片：flex:1 吃掉顶部腾出的全部高度，minHeight 由 resolveDrillLayout 按屏高给 */
     cardSlot: { flex: 1 },
+    stackBack: {
+      position: "absolute",
+      borderRadius: radius.panel,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    stackBackNear: { left: 12, right: 12, top: 8, bottom: -8, opacity: 0.72 },
+    stackBackFar: { left: 24, right: 24, top: 16, bottom: -16, opacity: 0.38 },
+    blurLayer: { borderRadius: radius.panel, overflow: "hidden" },
+    blurFallback: { backgroundColor: colors.surfaceStrong },
     card: {
       flex: 1,
       borderRadius: radius.panel,

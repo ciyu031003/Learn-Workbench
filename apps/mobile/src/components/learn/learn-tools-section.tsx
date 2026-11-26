@@ -9,13 +9,15 @@ import { LearnToolsGrid, type LearnToolItem, type LearnToolTuple } from "./learn
 import { makeStyles } from "./learn-styles";
 
 /**
- * ⑤ 学习工具区块：2×2 四张行式卡（复习与错题 / 技术题库 / 408 专区 / 学习统计）。
+ * ⑤ 学习工具区块：2×3 六张行式卡（复习与错题 / 技术题库 / 408 专区 / 学习统计 / 阶段路线 / 材料阅读）。
  *
  * 数字全部来自既有真实数据：
  * - 复习：reviewStats.due / wrong（remoteOk=false 表示离线拿不到排期 → 写「到期需联网」而不是 0）
  * - 题库：questionCount + 今日作答数（learningSummary.today）+ 每日目标
  * - 408：exam408ChapterCount 章 / exam408PointCount 知识点（来自内容库 ex-408-grad）
  * - 统计：practiceAccuracy + 累计作答（learningSummary.attempted）
+ * - 阶段路线：当前阶段周数 + 主题数（cabin）
+ * - 材料阅读：长文精读入口（题库材料）
  */
 export function LearnToolsSection({
   reviewStats,
@@ -24,6 +26,8 @@ export function LearnToolsSection({
   exam408ChapterCount,
   exam408PointCount,
   practiceAccuracy,
+  phaseWeeks,
+  topicCount,
 }: {
   reviewStats: { due: number; wrong: number; total: number; mastered: number; remoteOk: boolean } | null;
   learningSummary: { today: number; attempted: number; correct: number; wrong: number };
@@ -31,6 +35,8 @@ export function LearnToolsSection({
   exam408ChapterCount: number;
   exam408PointCount: number;
   practiceAccuracy: number | null;
+  phaseWeeks: string;
+  topicCount: number;
 }): React.JSX.Element {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -87,13 +93,33 @@ export function LearnToolsSection({
         : "打开学习统计，正确率 " + practiceAccuracy + "%",
   };
 
-  const items: LearnToolTuple = [reviewItem, bankItem, exam408Item, statsItem];
+  const roadmapItem: LearnToolItem = {
+    key: "roadmap",
+    icon: "folder",
+    title: "阶段路线",
+    meta: phaseWeeks + " · " + topicCount + " 主题",
+    tone: "teal",
+    onPress: () => router.push("/roadmap" as never),
+    accessibilityLabel: "打开阶段路线，" + topicCount + " 个主题",
+  };
+
+  const readingItem: LearnToolItem = {
+    key: "reading",
+    icon: "reading",
+    title: "材料阅读",
+    meta: "长文精读 · 题组 · 术语表",
+    tone: "primary",
+    onPress: () => router.push("/quiz/read" as never),
+    accessibilityLabel: "打开材料阅读",
+  };
+
+  const items: LearnToolTuple = [reviewItem, bankItem, exam408Item, statsItem, roadmapItem, readingItem];
 
   return (
     <>
       <SectionTitle
         title="学习工具"
-        right={<Text style={styles.sectionMeta}>今天先做哪一个</Text>}
+        right={<Text style={styles.sectionMeta}>2×3 · 今天先做哪一个</Text>}
         style={styles.sectionTitle}
       />
       <LearnToolsGrid items={items} />

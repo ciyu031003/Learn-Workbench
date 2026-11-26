@@ -10,7 +10,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { makeStyles } from "./learn-styles";
 
 /** 工具卡色调：只做识别色，语义由工具本身决定 */
-export type LearnToolTone = "primary" | "success" | "accent" | "lavender";
+export type LearnToolTone = "primary" | "success" | "accent" | "lavender" | "teal";
 
 export interface LearnToolItem {
   key: string;
@@ -23,8 +23,15 @@ export interface LearnToolItem {
   accessibilityLabel: string;
 }
 
-/** 四张工具卡固定（复习 / 题库 / 408 / 统计），用元组固定个数，避免渲染里再判空 */
-export type LearnToolTuple = [LearnToolItem, LearnToolItem, LearnToolItem, LearnToolItem];
+/** 六张工具卡固定（复习 / 题库 / 408 / 统计 / 阶段路线 / 材料阅读），用元组固定个数，避免渲染里再判空 */
+export type LearnToolTuple = [
+  LearnToolItem,
+  LearnToolItem,
+  LearnToolItem,
+  LearnToolItem,
+  LearnToolItem,
+  LearnToolItem,
+];
 
 function toneOf(colors: ThemeColors, tone: LearnToolTone): { fg: string; bg: string } {
   switch (tone) {
@@ -34,6 +41,8 @@ function toneOf(colors: ThemeColors, tone: LearnToolTone): { fg: string; bg: str
       return { fg: colors.accent, bg: colors.accentSoft };
     case "lavender":
       return { fg: colors.lavender, bg: withAlpha(colors.lavender, 0.14) };
+    case "teal":
+      return { fg: colors.teal, bg: withAlpha(colors.teal, 0.14) };
     default:
       return { fg: colors.primary, bg: colors.primarySoft };
   }
@@ -62,15 +71,15 @@ function ToolCardBody({ item }: { item: LearnToolItem }) {
 }
 
 /**
- * ⑤ 学习工具（对齐 demo .ltools）：2×2 紧凑行式卡，每张 = 圆角底片图标 + 标题 + 数字小字。
+ * ⑤ 学习工具（对齐 demo .ltools）：2×3 紧凑行式卡，每张 = 圆角底片图标 + 标题 + 数字小字。
  *
- * 四张卡是固定产品集合，所以这里逐张写出（不用 map）：每张都显式带 hitSlop，
+ * 六张卡是固定产品集合，所以这里逐张写出（不用 map）：每张都显式带 hitSlop，
  * 门禁的触控热区统计才能逐张覆盖到；文案与跳转全部由 LearnToolsSection 传入。
  */
 export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [review, bank, exam408, stats] = items;
+  const [review, bank, exam408, stats, roadmap, reading] = items;
 
   return (
     <View style={styles.toolsGrid}>
@@ -127,6 +136,34 @@ export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
       >
         <View style={styles.toolCard}>
           <ToolCardBody item={stats} />
+        </View>
+      </PressableScale>
+
+      <PressableScale
+        haptic
+        hitSlop={6}
+        scaleTo={0.97}
+        onPress={roadmap.onPress}
+        style={styles.toolCell}
+        accessibilityRole="button"
+        accessibilityLabel={roadmap.accessibilityLabel}
+      >
+        <View style={styles.toolCard}>
+          <ToolCardBody item={roadmap} />
+        </View>
+      </PressableScale>
+
+      <PressableScale
+        haptic
+        hitSlop={6}
+        scaleTo={0.97}
+        onPress={reading.onPress}
+        style={styles.toolCell}
+        accessibilityRole="button"
+        accessibilityLabel={reading.accessibilityLabel}
+      >
+        <View style={styles.toolCard}>
+          <ToolCardBody item={reading} />
         </View>
       </PressableScale>
     </View>
