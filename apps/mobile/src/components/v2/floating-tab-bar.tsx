@@ -69,13 +69,17 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
     >
       <View style={styles.shadow}>
         <View style={styles.bar}>
-          <BlurView
-            intensity={86}
-            tint={dark ? "dark" : "light"}
-            blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
-            blurTarget={blurTarget ?? undefined}
-            style={StyleSheet.absoluteFill}
-          />
+          {/* Android 在 2.8.2 起不再下发 blurTarget；此时 BlurView 会画出一层白底，
+              必须整块跳过，只保留染色 + 镜面高光（否则底栏会变回白色背板）。 */}
+          {Platform.OS !== "android" || blurTarget ? (
+            <BlurView
+              intensity={86}
+              tint={dark ? "dark" : "light"}
+              blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+              blurTarget={blurTarget ?? undefined}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null}
           {/* 染色层只负责色温与文字对比，不做"白色背板"：30% 白 + 上下镜面高光 */}
           <View style={[StyleSheet.absoluteFill, styles.tint]} />
           <View pointerEvents="none" style={styles.sheenTop} />

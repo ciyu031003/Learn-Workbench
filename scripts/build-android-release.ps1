@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # 一键构建 Android Release APK（把踩坑点 23 的隐性知识固化成脚本）
 #
 #   pwsh scripts/build-android-release.ps1 -VersionName 1.3.0 -VersionCode 9
@@ -161,8 +161,14 @@ if (-not $PatchOnly) {
 
 # Gradle 工具链要求 languageVersion=17；若系统 JAVA_HOME 是 21/其它版本，Gradle 会尝试联网下载 JDK 17
 # （本网络常被阻断 → 构建失败）。因此优先使用仓库内自带的 JDK 17。
+# 逃生口：本机 JDK 17 的 native-platform.dll 加载失败时（Gradle 9.3.1 已知问题），
+# 用 LWB_ANDROID_JDK 指向可用的 JDK 21 即可，无需改名 .tools/jdk17。
 $localJdk = Join-Path $root ".tools\jdk17\Library"
-if (Test-Path (Join-Path $localJdk "bin\java.exe")) {
+$overrideJdk = $env:LWB_ANDROID_JDK
+if ($overrideJdk -and (Test-Path (Join-Path $overrideJdk "bin\java.exe"))) {
+  $env:JAVA_HOME = $overrideJdk
+  Info "使用 LWB_ANDROID_JDK：$overrideJdk"
+} elseif (Test-Path (Join-Path $localJdk "bin\java.exe")) {
   $env:JAVA_HOME = $localJdk
   Info "改用仓库内 JDK 17：$localJdk"
 }

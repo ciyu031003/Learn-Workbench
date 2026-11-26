@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   AppState,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar as RNStatusBar,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { BlurView } from "expo-blur";
+import { useBlurTarget } from "@/components/blur-target";
 import { ThemedIcon } from "@/components/themed-icon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -77,6 +79,23 @@ const fmt = (s: number) => {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 };
 
+/**
+ * 计时页玻璃底：iOS 用真实 BlurView，Android 且无 blurTarget 时直接返回 null，
+ * 由卡片自身的半透明底承担玻璃感（避免 expo-blur 回退出灰白蒙版）。
+ */
+function GlassVeil({ intensity }: { intensity: number }) {
+  const blurTarget = useBlurTarget();
+  if (Platform.OS === "android" && !blurTarget) return null;
+  return (
+    <BlurView
+      intensity={intensity}
+      tint="dark"
+      blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+      blurTarget={blurTarget ?? undefined}
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
 export function FocusTimer({
   open,
   task,
@@ -993,7 +1012,7 @@ export function FocusTimer({
               ]}
             >
               <View style={styles.landscapeCard}>
-                <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
+                <GlassVeil intensity={28} />
                 <View style={styles.timerCardHead}>
                   <Text style={styles.timerCardKicker}>{pomodoroLabel}</Text>
                   <View style={[styles.statusPill, !running && styles.statusPillPaused]}>
@@ -1043,7 +1062,7 @@ export function FocusTimer({
                   )}
                 </Pressable>
                 <View style={styles.glassDock}>
-                  <BlurView intensity={32} tint="dark" style={StyleSheet.absoluteFill} />
+                  <GlassVeil intensity={32} />
                   {volumeControls}
                   {actionDock}
                 </View>
@@ -1054,7 +1073,7 @@ export function FocusTimer({
             <View style={[styles.runBody, { paddingBottom: insets.bottom + 10 }]}>
               <View style={styles.runSpacer} />
               <View style={styles.timerCard}>
-                <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
+                <GlassVeil intensity={26} />
                 <View style={styles.timerCardHead}>
                   <Text style={styles.timerCardKicker}>{pomodoroLabel}</Text>
                   <View style={[styles.statusPill, !running && styles.statusPillPaused]}>
@@ -1124,7 +1143,7 @@ export function FocusTimer({
               </Pressable>
 
               <View style={styles.glassDock}>
-                <BlurView intensity={32} tint="dark" style={StyleSheet.absoluteFill} />
+                <GlassVeil intensity={32} />
                 {volumeControls}
                 {actionDock}
               </View>

@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBlurTarget } from "@/components/blur-target";
 import { PressableScale } from "@/components/pressable-scale";
 import { RingProgress } from "@/components/ring-progress";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -24,6 +25,7 @@ export function FloatingFocusTimer() {
   const restore = useFocusSessionStore((s) => s.restore);
 
   const styles = useMemo(() => makeStyles(), []);
+  const blurTarget = useBlurTarget();
 
   if (!minimized || !snapshot) return null;
 
@@ -57,12 +59,15 @@ export function FloatingFocusTimer() {
         accessibilityLabel={statusText + " " + time + "，点按返回专注计时"}
         style={styles.pill}
       >
-        <BlurView
-          intensity={46}
-          tint="dark"
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
+        {Platform.OS !== "android" || blurTarget ? (
+          <BlurView
+            intensity={46}
+            tint="dark"
+            blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+            blurTarget={blurTarget ?? undefined}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.tint]} />
         <RingProgress
           size={22}

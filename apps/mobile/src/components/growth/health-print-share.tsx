@@ -68,6 +68,12 @@ export function HealthPrintShare({
     transform: [{ translateY: interpolate(print.value, [0, 0.58], [-PAPER_H, 0], Extrapolation.CLAMP) }],
   }));
 
+  const shortCode = useMemo(() => {
+    let hash = 7;
+    for (let i = 0; i < data.seed.length; i++) hash = (hash * 31 + data.seed.charCodeAt(i)) % 100000;
+    return "HW-" + String(hash).padStart(5, "0");
+  }, [data.seed]);
+
   const rows = [
     { key: "sleep", label: "睡眠", value: data.sleepHours === null ? "—" : data.sleepHours.toFixed(1), unit: "h" },
     { key: "food", label: "饮食", value: String(data.kcal), unit: "kcal" },
@@ -134,7 +140,7 @@ export function HealthPrintShare({
 
                 <Barcode seed={data.seed} progress={print} />
 
-                <Text style={styles.foot}>SCAN TO VIEW · {data.seed.slice(0, 12).toUpperCase()}</Text>
+                <Text style={styles.foot}>SCAN TO VIEW · {shortCode}</Text>
               </Animated.View>
             </View>
           </View>
@@ -288,7 +294,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     rowValue: { fontSize: 16, lineHeight: 20, fontWeight: "800", color: "#14202A", fontVariant: ["tabular-nums"] },
     rowUnit: { fontSize: 9, lineHeight: 12, fontWeight: "600", color: "#8A9297", marginBottom: 2 },
     barcode: { flexDirection: "row", alignItems: "flex-end", height: 34, marginTop: 2 },
-    foot: { marginTop: 5, fontSize: 7, lineHeight: 10, fontWeight: "600", letterSpacing: 0.8, color: "#9AA1A5" },
+    foot: { marginTop: 5, fontSize: 8, lineHeight: 11, fontWeight: "600", letterSpacing: 0.7, color: "#9AA1A5" },
     hint: { fontSize: 12, lineHeight: 17, fontWeight: "500", color: "rgba(255,255,255,0.72)" },
     actions: { flexDirection: "row", gap: spacing.sm, width: "100%", maxWidth: 360 },
     secondary: {

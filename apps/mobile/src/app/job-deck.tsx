@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { JobPostingListItem } from "@learn-workbench/shared/schemas";
@@ -53,10 +53,8 @@ export default function JobDeckScreen() {
 
   const onToggleFavorite = useCallback(async (job: JobPostingListItem) => {
     if (!token) {
-      Alert.alert("请先登录", "登录后才能收藏岗位。", [
-        { text: "取消", style: "cancel" },
-        { text: "去登录", onPress: () => router.push("/settings" as never) },
-      ]);
+      // 未登录不弹系统 Alert：直接进全屏玻璃登录页，登录后返回继续操作
+      router.push("/auth" as never);
       return;
     }
     setJobs((prev) => prev.map((item) => (item.id === job.id ? { ...item, isFav: !item.isFav } : item)));
@@ -73,10 +71,8 @@ export default function JobDeckScreen() {
 
   const onApply = useCallback(async (job: JobPostingListItem) => {
     if (!token) {
-      Alert.alert("请先登录", "登录后即可一键投递。", [
-        { text: "取消", style: "cancel" },
-        { text: "去登录", onPress: () => router.push("/settings" as never) },
-      ]);
+      // 未登录不弹系统 Alert：直接进全屏玻璃登录页，登录后返回继续操作
+      router.push("/auth" as never);
       return;
     }
     setApplyingId(job.id);

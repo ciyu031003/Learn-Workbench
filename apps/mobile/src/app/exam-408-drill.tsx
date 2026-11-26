@@ -1213,7 +1213,7 @@ export default function Exam408DrillScreen() {
         award={celebrationRequest ? {
           title: celebrationRequest.title,
           subtitle: celebrationRequest.subtitle,
-          dateText: new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }),
+          dateText: todayShortLabel(),
           accuracy: board.today.accuracy,
           reviewed: board.today.done,
           serial: "LW-" + new Date().toISOString().slice(5, 10).replace("-", ""),
@@ -1227,6 +1227,11 @@ export default function Exam408DrillScreen() {
 /* 小工具                                                              */
 /* ------------------------------------------------------------------ */
 
+/** 中文短日期（不依赖 Intl：Android Hermes 上 toLocaleDateString 会回落到英文） */
+function todayShortLabel() {
+  const d = new Date();
+  return d.getMonth() + 1 + " 月 " + d.getDate() + " 日";
+}
 /** 无障碍朗读用的纯文本：去掉换行与多余空白，避免 TalkBack 逐行念。 */
 function toPlainText(text: string): string {
   return text.replace(/\s+/g, " ").trim().slice(0, 120);

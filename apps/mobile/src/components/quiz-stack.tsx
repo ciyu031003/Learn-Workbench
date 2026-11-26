@@ -272,13 +272,17 @@ export function QuizStack({
 
                     {/* 切卡高斯模糊过渡：换字发生在完全模糊的一帧，看不到两张卡文字重叠 */}
                     <Animated.View pointerEvents="none" style={[styles.blurLayer, blurStyle]}>
-                      <BlurView
-                        intensity={30}
-                        tint="light"
-                        blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
-                        blurTarget={blurTarget ?? undefined}
-                        style={StyleSheet.absoluteFill}
-                      />
+                      {Platform.OS !== "android" || blurTarget ? (
+                        <BlurView
+                          intensity={30}
+                          tint="light"
+                          blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+                          blurTarget={blurTarget ?? undefined}
+                          style={StyleSheet.absoluteFill}
+                        />
+                      ) : (
+                        <View style={[StyleSheet.absoluteFill, styles.blurFallback]} />
+                      )}
                     </Animated.View>
                   </Animated.View>
                 </GestureDetector>
@@ -366,6 +370,7 @@ const makeStyles = (colors: ThemeColors) =>
     flipBackHint: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingBottom: spacing.md },
     flipBackHintText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     blurLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+    blurFallback: { backgroundColor: colors.surfaceStrong },
     footRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.md },
     footText: { ...typography.caption, color: colors.textMuted },
     closeBtn: {

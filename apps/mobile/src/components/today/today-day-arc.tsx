@@ -1,10 +1,8 @@
 import { useId, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { Icon, ICON_SIZE } from "@/components/ui/icon";
 import { haptics } from "@/lib/haptics";
-import { DURATION } from "@/lib/motion";
 import { TEXT_SCALE_POLICY } from "@/lib/text-scale";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
@@ -19,7 +17,7 @@ import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } f
  *
  * 约束（门禁）：
  * - 颜色一律来自 useTheme().colors（渐变用 accent → primary → chart[2]，等价 demo 的 #e58a35 → #347bc1 → #8bc4eb）；
- * - 不做无限循环动画、不手写时序动画（动效预算护栏），只在入场时走 FadeInDown；
+ * - 不做无限循环动画、不手写时序动画；主卡不做入场淡入（避免重渲染把透明度卡在中间）；
  * - 所有几何量在 viewBox(320×168) 里算，按实测宽度等比缩放到屏幕。
  */
 
@@ -59,7 +57,6 @@ export function TodayDayArc({
   focusLabel,
   taskRatio,
   streak,
-  reduced,
   onStartFocus,
 }: {
   /** 今日专注块的圆点（不超过 3 个） */
@@ -73,8 +70,6 @@ export function TodayDayArc({
   /** 任务完成（2/3，没任务时「—」） */
   taskRatio: string;
   streak: number;
-  /** 减弱动态：为 true 时不挂入场动画 */
-  reduced: boolean;
   onStartFocus: () => void;
 }) {
   const { colors } = useTheme();
@@ -92,10 +87,7 @@ export function TodayDayArc({
   const capsuleShift = Math.max(-maxShift, Math.min(maxShift, rawShift));
 
   return (
-    <Animated.View
-      entering={reduced ? undefined : FadeInDown.duration(DURATION.base)}
-      style={styles.card}
-    >
+    <View style={styles.card}>
       <View
         style={styles.arcBox}
         onLayout={(e) => {
@@ -220,7 +212,7 @@ export function TodayDayArc({
         <Text style={styles.ctaText}>开始 25 分钟专注</Text>
         <Icon name="chevron" size={ICON_SIZE.sm} weight="bold" color={colors.surface} />
       </Pressable>
-    </Animated.View>
+    </View>
   );
 }
 

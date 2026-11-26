@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { withAlpha } from "@/lib/chart-math";
-import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 
 /**
@@ -36,26 +36,33 @@ export const makeStyles = (colors: ThemeColors) =>
     northStar: {
       marginTop: spacing.xs,
       borderRadius: radius.panel,
-      padding: spacing.lg,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
       overflow: "hidden",
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: withAlpha(colors.accent, 0.26),
-      backgroundColor: colors.surface,
-      ...shadows.card,
+    },
+    nHeadRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
+    nHeadText: { flex: 1, minWidth: 0 },
+    fitBadge: {
+      flexShrink: 0,
+      minWidth: 68,
+      alignItems: "center",
+      paddingVertical: 10,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.lg,
+      backgroundColor: withAlpha(colors.surface, 0.62),
     },
     nEyebrow: { ...typography.eyebrow, color: colors.accentStrong },
     nTitle: { ...typography.hero, color: colors.text, marginTop: 7 },
     nHint: { ...typography.meta, color: colors.textMuted, marginTop: 5 },
-    fitRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg, marginTop: spacing.md },
-    fitNum: { flexShrink: 0, alignItems: "center", minWidth: 64 },
     fitValue: { ...typography.numXl, color: colors.text, ...tabularNums },
-    fitLabel: { ...typography.eyebrow, color: colors.textMuted, marginTop: 5 },
-    bars: { flex: 1, minWidth: 0, gap: 7 },
+    fitLabel: { ...typography.eyebrow, color: colors.textMuted, marginTop: 2 },
+    bars: { marginTop: spacing.md, gap: 8 },
     barRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     barLabel: { ...typography.eyebrow, color: colors.textMuted, width: 52 },
-    barTrack: { flex: 1, height: 5, borderRadius: radius.pill, backgroundColor: colors.chartTrack, overflow: "hidden" },
+    barTrack: { flex: 1, minWidth: 0, height: 5, borderRadius: radius.pill, backgroundColor: colors.chartTrack, overflow: "hidden" },
     barFill: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.accent },
-    barValue: { ...typography.eyebrow, color: colors.textSecondary, minWidth: 40, textAlign: "right" },
+    barValue: { ...typography.eyebrow, color: colors.textSecondary, width: 44, textAlign: "right" },
     nCta: {
       flexDirection: "row",
       alignItems: "center",

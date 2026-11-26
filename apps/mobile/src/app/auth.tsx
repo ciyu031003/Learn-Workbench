@@ -12,6 +12,7 @@ import {
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBlurTarget } from "@/components/blur-target";
 import { GlassSegment } from "@/components/v2/glass-segment";
 import { Icon } from "@/components/ui/icon";
 import { getApiUrl } from "@/config";
@@ -42,6 +43,7 @@ export default function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const styles = useMemo(() => makeStyles(), []);
+  const blurTarget = useBlurTarget();
 
   const finish = (token: string, name: string) => {
     setAuth(token, name);
@@ -128,7 +130,15 @@ export default function AuthScreen() {
           </View>
 
           <View style={styles.card}>
-            <BlurView intensity={64} tint="dark" style={StyleSheet.absoluteFill} />
+            {Platform.OS !== "android" || blurTarget ? (
+              <BlurView
+                intensity={64}
+                tint="dark"
+                blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+                blurTarget={blurTarget ?? undefined}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : null}
             <View pointerEvents="none" style={styles.cardTint} />
             <View pointerEvents="none" style={styles.cardSheen} />
             <View pointerEvents="none" style={styles.cardBorder} />
@@ -139,6 +149,7 @@ export default function AuthScreen() {
                 { key: "register", label: "注册" },
               ]}
               value={mode}
+              tone="dark"
               onChange={(next) => {
                 setMode(next);
                 setError(null);
@@ -199,7 +210,9 @@ export default function AuthScreen() {
               <Icon name="chevron" size={16} weight="bold" color="#0B1B27" />
             </Pressable>
 
-            <Text style={styles.terms}>登录即表示同意本地数据同步到你的云端账号</Text>
+            <Text style={styles.terms}>
+              {mode === "login" ? "登录" : "注册"}即表示同意本地数据同步到你的云端账号
+            </Text>
           </View>
 
           <Pressable

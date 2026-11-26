@@ -17,6 +17,7 @@ import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { BlurView } from "expo-blur";
+import { useBlurTarget } from "@/components/blur-target";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
@@ -182,6 +183,7 @@ export function ScreenHeaderStickyBar({
   const insets = useSafeAreaInsets();
   const topInset = resolveTopInset(insets.top);
   const pathname = usePathname();
+  const blurTarget = useBlurTarget();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const goBack = useGoBack(backTo);
   // 没有接入滚动值的详情页（弹层/静态页）保持标题常显；接入的页面按滚动淡入。
@@ -194,12 +196,15 @@ export function ScreenHeaderStickyBar({
 
   return (
     <View style={[styles.stickyWrap, { paddingTop: topInset }]}>
-      <BlurView
-        intensity={28}
-        tint={dark ? "dark" : "light"}
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
+      {Platform.OS !== "android" || blurTarget ? (
+        <BlurView
+          intensity={28}
+          tint={dark ? "dark" : "light"}
+          blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+          blurTarget={blurTarget ?? undefined}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <View style={styles.stickyBg} pointerEvents="none" />
       <View style={styles.stickyRow}>
         <Pressable

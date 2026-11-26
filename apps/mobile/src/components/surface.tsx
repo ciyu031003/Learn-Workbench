@@ -121,13 +121,15 @@ export function GlassSurface({
         style,
       ]}
     >
-      <BlurView
-        intensity={strong ? 54 : 36}
-        tint={dark ? "dark" : "light"}
-        blurMethod={BLUR_METHOD}
-        blurTarget={blurTarget ?? undefined}
-        style={StyleSheet.absoluteFill}
-      />
+      {Platform.OS !== "android" || blurTarget ? (
+        <BlurView
+          intensity={strong ? 54 : 36}
+          tint={dark ? "dark" : "light"}
+          blurMethod={BLUR_METHOD}
+          blurTarget={blurTarget ?? undefined}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       {/* 半透明染色层：保证文字对比度，同时给玻璃一点色温 */}
       <View
         pointerEvents="none"

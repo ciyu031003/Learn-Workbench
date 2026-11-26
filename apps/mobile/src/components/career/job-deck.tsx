@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import type { JobPostingListItem } from "@learn-workbench/shared/schemas";
+import { useBlurTarget } from "@/components/blur-target";
 import { Icon } from "@/components/ui/icon";
 import { haptics } from "@/lib/haptics";
 import { useReducedMotion } from "@/lib/motion";
@@ -29,7 +30,7 @@ import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } f
  */
 
 const CARD_MAX_W = 380;
-const CARD_HEIGHT_RATIO = 0.56;
+const CARD_HEIGHT_RATIO = 0.5;
 const SWIPE_RATIO = 0.22;
 const SWIPE_VELOCITY = 720;
 
@@ -48,12 +49,13 @@ export function JobDeck({
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const blurTarget = useBlurTarget();
   const { width: winW, height: winH } = useWindowDimensions();
   const reduced = useReducedMotion();
   const active = isMotionActive(reduced);
 
   const cardW = Math.min(winW - 56, CARD_MAX_W);
-  const cardH = Math.min(Math.round(winH * CARD_HEIGHT_RATIO), 470);
+  const cardH = Math.min(Math.round(winH * CARD_HEIGHT_RATIO), 420);
 
   const [index, setIndex] = useState(0);
   const [swapping, setSwapping] = useState(false);
@@ -155,12 +157,15 @@ export function JobDeck({
 
         <GestureDetector gesture={pan}>
           <Animated.View style={[styles.card, { width: cardW, height: cardH }, cardStyle]}>
-            <BlurView
-              intensity={30}
-              tint={dark ? "dark" : "light"}
-              blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
-              style={StyleSheet.absoluteFill}
-            />
+            {Platform.OS !== "android" || blurTarget ? (
+              <BlurView
+                intensity={30}
+                tint={dark ? "dark" : "light"}
+                blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+                blurTarget={blurTarget ?? undefined}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : null}
             <View pointerEvents="none" style={styles.cardTint} />
 
             <View style={styles.topRow}>
@@ -212,6 +217,14 @@ export function JobDeck({
               ))}
             </View>
 
+            <View style={styles.infoBlock}>
+              <InfoRow label="工作城市" value={(job.city ?? "") + (job.district ?? "") || "不限"} />
+              <InfoRow label="经验要求" value={job.experience || "不限"} />
+              <InfoRow label="学历要求" value={job.education || "不限"} />
+              <InfoRow label="信息来源" value={sourceLabel(job.source)} />
+              <InfoRow label="更新时间" value={shortDate(job.publishedAt ?? job.fetchedAt)} />
+            </View>
+
             <View style={styles.spacer} />
 
             <Pressable
@@ -244,12 +257,17 @@ export function JobDeck({
 
             {/* 高斯模糊过渡层：只盖卡片内容，不拦截手势 */}
             <Animated.View pointerEvents="none" style={[styles.blurLayer, blurStyle]}>
-              <BlurView
-                intensity={34}
-                tint={dark ? "dark" : "light"}
-                blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
-                style={StyleSheet.absoluteFill}
-              />
+              {Platform.OS !== "android" || blurTarget ? (
+                <BlurView
+                  intensity={34}
+                  tint={dark ? "dark" : "light"}
+                  blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+                  blurTarget={blurTarget ?? undefined}
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, styles.blurFallback]} />
+              )}
               <View style={styles.blurTint} />
             </Animated.View>
           </Animated.View>
@@ -276,6 +294,42 @@ export function JobDeck({
           <Icon name="chevron" size={20} weight="bold" color={colors.text} />
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  boss: "BOSS 直聘",
+  liepin: "猎聘",
+  lagou: "拉勾",
+  maitu: "麦田",
+  jobui: "职友集",
+  shixiseng: "实习僧",
+  nowcoder: "牛客",
+  zhaopin: "智联招聘",
+  zhilian: "智联招聘",
+  "51job": "前程无忧",
+};
+
+function sourceLabel(source: string) {
+  return SOURCE_LABELS[source] ?? source;
+}
+
+function shortDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={1}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -324,6 +378,17 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, maxWidth: "48%" },
     chipText: { ...typography.micro, fontWeight: "600", color: colors.textSecondary },
     spacer: { flex: 1 },
+    infoBlock: {
+      marginTop: spacing.md,
+      marginHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+    },
+    infoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md, minHeight: 26 },
+    infoLabel: { ...typography.meta, color: colors.textMuted },
+    infoValue: { ...typography.caption, fontWeight: "700", color: colors.text, flexShrink: 1, textAlign: "right" },
     detailLink: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: spacing.lg, paddingVertical: 6 },
     detailText: { ...typography.caption, fontWeight: "600", color: colors.primary },
     applyBtn: {
@@ -340,6 +405,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     applyPressed: { opacity: 0.86 },
     applyText: { ...typography.callout, fontWeight: "700", color: colors.canvas },
     blurLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+    blurFallback: { backgroundColor: colors.surfaceStrong },
     blurTint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: dark ? "rgba(14,21,26,0.16)" : "rgba(255,255,255,0.14)" },
     controls: { flexDirection: "row", alignItems: "center", gap: 40 },
     arrow: {

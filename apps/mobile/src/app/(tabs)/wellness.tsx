@@ -246,9 +246,9 @@ export default function WellnessScreen() {
               </PressableScale>
             </Surface>
 
-            {/* 冷启动（全无记录）：一组轻量起点动作，不堆卡片 */}
-            {growth.empty ? (
-              <View style={styles.startBlock}>
+            {/* 起点动作常驻：有记录时只收起「先记一杯水」，三个快捷入口仍可用 */}
+            <View style={styles.startBlock}>
+              {growth.empty ? (
                 <PressableScale
                   haptic
                   scaleTo={0.98}
@@ -261,25 +261,25 @@ export default function WellnessScreen() {
                   <ThemedIcon name="water-outline" size={17} color={colors.canvas} />
                   <Text style={styles.startPrimaryText}>先记一杯水 · 250 ml</Text>
                 </PressableScale>
-                <View style={styles.startRow}>
-                  <StartAction
-                    icon="restaurant-outline"
-                    label="记一餐"
-                    onPress={() => router.push("/nutrition" as never)}
-                  />
-                  <StartAction
-                    icon="scale-outline"
-                    label="记体重"
-                    onPress={() => router.push("/trends" as never)}
-                  />
-                  <StartAction
-                    icon="moon-outline"
-                    label="记录睡眠"
-                    onPress={() => router.push("/sleep" as never)}
-                  />
-                </View>
+              ) : null}
+              <View style={styles.startRow}>
+                <StartAction
+                  icon="restaurant-outline"
+                  label="记一餐"
+                  onPress={() => router.push("/nutrition" as never)}
+                />
+                <StartAction
+                  icon="scale-outline"
+                  label="记体重"
+                  onPress={() => router.push("/trends" as never)}
+                />
+                <StartAction
+                  icon="moon-outline"
+                  label="记录睡眠"
+                  onPress={() => router.push("/sleep" as never)}
+                />
               </View>
-            ) : null}
+            </View>
 
             {/* 底部quiet入口：首屏只看概览，明细都在数据看板 */}
             <PressableScale

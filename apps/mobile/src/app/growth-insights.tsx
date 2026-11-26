@@ -161,7 +161,7 @@ export default function GrowthInsightsScreen() {
         onClose={() => setPrintOpen(false)}
         data={{
           rangeLabel: "今日",
-          dateText: new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" }),
+          dateText: todayLabel(),
           sleepHours: growth.sleepHours,
           kcal: growth.data?.fitness.nutritionKcal ?? 0,
           workoutMinutes: growth.data?.fitness.workoutMinutes ?? 0,
@@ -173,6 +173,12 @@ export default function GrowthInsightsScreen() {
   );
 }
 
+/** 中文日期（不依赖 Intl：Android Hermes 上 toLocaleDateString 会回落到英文） */
+function todayLabel() {
+  const d = new Date();
+  const week = "日一二三四五六"[d.getDay()];
+  return d.getMonth() + 1 + " 月 " + d.getDate() + " 日 · 周" + week;
+}
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.canvas },

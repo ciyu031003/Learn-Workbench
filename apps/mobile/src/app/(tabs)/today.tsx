@@ -161,7 +161,6 @@ export default function TodayScreen() {
           focusLabel={focusTodayLabel}
           taskRatio={taskRatioLabel}
           streak={streak}
-          reduced={reduced}
           onStartFocus={openQuickStart}
         />
 

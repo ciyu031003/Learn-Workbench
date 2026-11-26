@@ -31,15 +31,18 @@ export function GlassSegment<T extends string>({
   onChange,
   style,
   accessibilityLabel,
+  tone = "light",
 }: {
   options: readonly GlassSegmentOption<T>[];
   value: T;
   onChange: (next: T) => void;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /** light = 浅色画布上的玻璃；dark = 深色沉浸页（登录 / 图表演示） */
+  tone?: "light" | "dark";
 }) {
   const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const styles = useMemo(() => makeStyles(colors, dark, tone === "dark"), [colors, dark, tone]);
   const blurTarget = useBlurTarget();
   const reduced = useReducedMotion();
   const active = isMotionActive(reduced);
@@ -63,13 +66,15 @@ export function GlassSegment<T extends string>({
       accessibilityRole="tablist"
       accessibilityLabel={accessibilityLabel}
     >
-      <BlurView
-        intensity={46}
-        tint={dark ? "dark" : "light"}
-        blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
-        blurTarget={blurTarget ?? undefined}
-        style={StyleSheet.absoluteFill}
-      />
+      {Platform.OS !== "android" || blurTarget ? (
+        <BlurView
+          intensity={46}
+          tint={dark ? "dark" : "light"}
+          blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+          blurTarget={blurTarget ?? undefined}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <View pointerEvents="none" style={styles.tint} />
       <View pointerEvents="none" style={styles.sheen} />
 
@@ -104,7 +109,7 @@ export function GlassSegment<T extends string>({
   );
 }
 
-const makeStyles = (colors: ThemeColors, dark: boolean) =>
+const makeStyles = (colors: ThemeColors, dark: boolean, onDark: boolean) =>
   StyleSheet.create({
     shell: {
       height: HEIGHT,
@@ -112,19 +117,26 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       alignItems: "stretch",
       borderRadius: radius.pill,
       borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: dark ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.72)",
+      borderColor: onDark ? "rgba(255,255,255,0.20)" : dark ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.72)",
       overflow: "hidden",
       paddingHorizontal: PAD,
       backgroundColor: "transparent",
     },
-    tint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: dark ? "rgba(16,24,30,0.40)" : "rgba(255,255,255,0.22)" },
+    tint: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: onDark ? "rgba(6,14,22,0.34)" : dark ? "rgba(16,24,30,0.40)" : "rgba(255,255,255,0.22)",
+    },
     sheen: {
       position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       height: "48%",
-      backgroundColor: dark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.26)",
+      backgroundColor: onDark ? "rgba(255,255,255,0.07)" : dark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.26)",
     },
     pill: {
       position: "absolute",
@@ -132,9 +144,9 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       left: PAD,
       height: PILL_HEIGHT,
       borderRadius: radius.pill,
-      backgroundColor: dark ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.78)",
+      backgroundColor: onDark ? "rgba(255,255,255,0.88)" : dark ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.78)",
       borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: dark ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.92)",
+      borderColor: onDark ? "rgba(255,255,255,0.62)" : dark ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.92)",
       shadowColor: "#1B4F87",
       shadowOpacity: dark ? 0 : 0.14,
       shadowRadius: 7,
@@ -152,6 +164,11 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       backgroundColor: dark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.5)",
     },
     item: { flex: 1, alignItems: "center", justifyContent: "center", zIndex: 1 },
-    label: { fontSize: 12, lineHeight: 16, fontWeight: "600", color: dark ? "rgba(255,255,255,0.64)" : colors.textMuted },
-    labelOn: { fontWeight: "700", color: colors.text },
+    label: {
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: "600",
+      color: onDark ? "rgba(255,255,255,0.72)" : dark ? "rgba(255,255,255,0.64)" : colors.textMuted,
+    },
+    labelOn: { fontWeight: "700", color: onDark ? "#0F191D" : colors.text },
   });
