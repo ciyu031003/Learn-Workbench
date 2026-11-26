@@ -261,3 +261,64 @@ describe("PATCH /api/nutrition", () => {
     expect((queryMock.mock.calls[1][1] as unknown[])[3]).toBe("dinner");
   });
 });
+
+// v2.8.7 真机走查回归：匿名写入必须让占位符与参数严格对齐。
+// 旧实现 POST 匿名分支从 $3 起编号（$2 悬空 → PG 42P18），PATCH 的 SET $3
+// 又和 anon_id 过滤参数撞号，会把记录字段写坏。
+describe("匿名作用域参数对齐", () => {
+  const anonRow = {
+    id: "7", foodId: null, amount: "1", unit: "份", name: "旧名字",
+    kcal: "100", proteinG: "1", carbsG: "10", fatG: "2", meal: "snack",
+  };
+
+  function useAnonScope() {
+    userScopeMock.mockResolvedValue({ uid: null, anonId: "anon-device-1" });
+    scopeWhereMock.mockImplementation((_scope, base) => {
+      const params = [...(base as unknown[])];
+      params.push("anon-device-1");
+      return { params, sql: ` AND anon_id IS NOT DISTINCT FROM $${params.length}` };
+    });
+  }
+
+  it("POST 匿名新增：占位符连续且覆盖全部参数", async () => {
+    useAnonScope();
+    parseBodyMock.mockResolvedValue({ ok: true, data: { name: "匿名面包", kcal: 210, clientId: "cid-anon-1" } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [] } as never) // 幂等查询：没有旧记录
+      .mockResolvedValueOnce({ rows: [{ id: "9" }] } as never); // INSERT
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(201);
+    const sql = String(queryMock.mock.calls[1][0]);
+    expect(sql).toContain("VALUES (NULL, $1, $2::date");
+    const used = Math.max(...[...sql.matchAll(/\$(\d+)/g)].map((m) => Number(m[1])));
+    expect((queryMock.mock.calls[1][1] as unknown[]).length).toBe(used);
+  });
+
+  it("PATCH 匿名编辑：SET 从作用域参数之后开始，不覆盖 anon 过滤参数", async () => {
+    useAnonScope();
+    parseBodyMock.mockResolvedValue({ ok: true, data: { id: 7, name: "新名字" } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [anonRow] } as never) // 取原记录
+      .mockResolvedValueOnce({ rows: [{ id: "7" }] } as never); // UPDATE
+    const res = await PATCH(new Request("http://localhost", { method: "PATCH" }));
+    expect(res.status).toBe(200);
+    const [sql, params] = queryMock.mock.calls[1];
+    expect(String(sql)).toContain("SET name = $4");
+    expect(String(sql)).toContain("anon_id IS NOT DISTINCT FROM $3");
+    expect((params as unknown[])[3]).toBe("新名字");
+  });
+
+  it("并发撞 23505：回读已有记录并按幂等 200 返回（不把重复当失败）", async () => {
+    useAnonScope();
+    parseBodyMock.mockResolvedValue({ ok: true, data: { name: "并发面包", kcal: 210, clientId: "cid-race" } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [] } as never) // 幂等查询：还没落库
+      .mockRejectedValueOnce({ code: "23505" } as never) // INSERT 撞 094 唯一索引
+      .mockResolvedValueOnce({ rows: [{ id: "10", name: "并发面包" }] } as never); // 回读
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.deduped).toBe(true);
+    expect(queryMock.mock.calls).toHaveLength(3);
+  });
+});

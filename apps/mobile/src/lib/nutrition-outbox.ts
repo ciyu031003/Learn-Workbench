@@ -238,20 +238,40 @@ export type FlushStep = "ok" | "retry" | "drop";
  * 设计要点（v1.3.5 真机反馈修复）：旧实现只认 boolean 且失败即 break，
  * 一条"毒丸"（例如 foodId 已失效的 404）会永久堵住它后面所有记录的补发。
  */
-export async function flushOutbox(
-  send: (op: OutboxOp) => Promise<FlushStep>
-): Promise<{ sent: number; dropped: number; remaining: number }> {
-  let state = await loadOutbox();
-  let sent = 0;
-  let dropped = 0;
-  while (state.ops.length > 0) {
-    const op = state.ops[0];
-    const step = await send(op);
-    if (step === "retry") break;
-    state = dequeue(state, op.opId);
-    if (step === "ok") sent += 1;
-    else dropped += 1;
-    await saveOutbox(state);
-  }
-  return { sent, dropped, remaining: state.ops.length };
+export interface FlushResult {
+  sent: number;
+  dropped: number;
+  remaining: number;
+}
+
+/**
+ * 进程内单飞锁（v2.8.7 真机：同一顿饭被提交两次）。
+ *
+ * 饮食页会同时从 mount effect / 回前台 / 下拉刷新触发多次 load()，
+ * 每次 load 都先 flushPending()。旧实现没有互斥，两个 flush 同时读到同一条
+ * create op 并各自 POST 一次；匿名库没有 (anon_id, client_id) 唯一约束时就会落两条。
+ * 这里让并发调用共享同一个 Promise：只有第一次真正发送，后来者等它的结果。
+ */
+let activeFlush: Promise<FlushResult> | null = null;
+
+export function flushOutbox(send: (op: OutboxOp) => Promise<FlushStep>): Promise<FlushResult> {
+  if (activeFlush) return activeFlush;
+  activeFlush = (async () => {
+    let state = await loadOutbox();
+    let sent = 0;
+    let dropped = 0;
+    while (state.ops.length > 0) {
+      const op = state.ops[0];
+      const step = await send(op);
+      if (step === "retry") break;
+      state = dequeue(state, op.opId);
+      if (step === "ok") sent += 1;
+      else dropped += 1;
+      await saveOutbox(state);
+    }
+    return { sent, dropped, remaining: state.ops.length };
+  })().finally(() => {
+    activeFlush = null;
+  });
+  return activeFlush;
 }

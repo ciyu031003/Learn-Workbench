@@ -82,10 +82,14 @@ export async function POST(req: Request) {
 
   const scope = await userScope();
 
-  // 幂等（v3 M4 离线补发）：同一 clientId 重复提交直接返回已存在的那条，避免重复记录
-  if (clientId) {
+  /**
+   * 幂等（v3 M4 离线补发）：同一 clientId 重复提交直接返回已存在的那条。
+   * 抽成闭包是因为并发补发还要在唯一索引冲突（23505）后复用同一次查询。
+   */
+  const findExistingByClientId = async (): Promise<Record<string, unknown> | null> => {
+    if (!clientId) return null;
     const dup = scopeWhere(scope, [scope.uid, clientId]);
-    const { rows: existing } = await pgPool.query(
+    const { rows: existing } = await pgPool.query<Record<string, unknown>>(
       `SELECT id, log_date AS "logDate", meal, food_id AS "foodId", name, amount, unit,
               kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG",
               created_at AS "createdAt"
@@ -94,8 +98,10 @@ export async function POST(req: Request) {
         LIMIT 1`,
       dup.params
     );
-    if (existing[0]) return NextResponse.json({ entry: existing[0], deduped: true }, { status: 200 });
-  }
+    return existing[0] ?? null;
+  };
+  const existing = await findExistingByClientId();
+  if (existing) return NextResponse.json({ entry: existing, deduped: true }, { status: 200 });
 
   let foodId: number | null = null;
   let kcal = Math.max(0, Number(body.kcal) || 0);
@@ -164,26 +170,47 @@ export async function POST(req: Request) {
     date, meal, foodId, name, amount, unit,
     round1(kcal), round1(proteinG), round1(carbsG), round1(fatG), clientId, grams, foodItemId,
   ];
-  /** 占位符：第 1 个（log_date）带 ::date 转换，offset = 前面的 id 列数 + 1 */
+  /**
+   * 占位符：offset = 前面的 id 列数 + 1。
+   * 除 log_date 外全部显式标注类型——可空参数（food_id / grams / food_item_id）
+   * 在扩展协议里若不给类型会被 PG 判成 unknown，直接 42P18（v2.8.7 真机：匿名新增饮食 500）。
+   */
+  const COLUMN_TYPES = [
+    "date", "text", "bigint", "text", "numeric", "text",
+    "numeric", "numeric", "numeric", "numeric", "text", "numeric", "bigint",
+  ] as const;
   const placeholders = (offset: number) =>
-    vals.map((_, i) => `$${i + offset}${i === 0 ? "::date" : ""}`).join(", ");
+    vals.map((_, i) => `$${i + offset}::${COLUMN_TYPES[i] ?? "text"}`).join(", ");
   const returning = `id, log_date AS "logDate", meal, food_id AS "foodId", name, amount, unit,
                 kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG",
                 grams, food_item_id AS "foodItemId"`;
 
   let rows;
-  if (scope.uid) {
-    ({ rows } = await pgPool.query(
-      `INSERT INTO meal_entries (user_id, ${cols}) VALUES ($1, ${placeholders(2)})
-       RETURNING ${returning}`,
-      [scope.uid, ...vals]
-    ));
-  } else {
-    ({ rows } = await pgPool.query(
-      `INSERT INTO meal_entries (user_id, anon_id, ${cols}) VALUES (NULL, $1, ${placeholders(3)})
-       RETURNING ${returning}`,
-      [scope.anonId, ...vals]
-    ));
+  try {
+    if (scope.uid) {
+      ({ rows } = await pgPool.query(
+        `INSERT INTO meal_entries (user_id, ${cols}) VALUES ($1, ${placeholders(2)})
+         RETURNING ${returning}`,
+        [scope.uid, ...vals]
+      ));
+    } else {
+      ({ rows } = await pgPool.query(
+        `INSERT INTO meal_entries (user_id, anon_id, ${cols}) VALUES (NULL, $1, ${placeholders(2)})
+         RETURNING ${returning}`,
+        [scope.anonId, ...vals]
+      ));
+    }
+  } catch (e) {
+    /**
+     * 并发补发：两个请求同时通过上面的幂等检查时，094 的部分唯一索引会让后到的
+     * 那个撞 23505。这代表记录已经在库里，按幂等成功返回（200 deduped），
+     * 不要回 4xx 让客户端把这条当成校验失败丢掉、也不要回 5xx 让它继续重试。
+     */
+    if ((e as { code?: string } | null)?.code === "23505" && clientId) {
+      const raced = await findExistingByClientId();
+      if (raced) return NextResponse.json({ entry: raced, deduped: true }, { status: 200 });
+    }
+    throw e;
   }
   return NextResponse.json({ entry: rows[0] }, { status: 201 });
   } catch (e) {
@@ -268,15 +295,22 @@ export async function PATCH(req: Request) {
     }
   }
 
+  /**
+   * 占位符从作用域参数之后开始：登录态 w.params = [uid, id]（SET 从 $3 起）；
+   * 匿名态 w.params = [uid, id, anonId]（SET 从 $4 起）。
+   * 旧实现写死 $3..$10，匿名时 $3 同时是 anonId 和 name，会把整条记录写坏（v2.8.7 真机走查）。
+   */
+  const setBase = w.params.length;
   const { rows } = await pgPool.query(
     `UPDATE meal_entries
-        SET name = $3, meal = $4, amount = $5, unit = $6,
-            kcal = $7, protein_g = $8, carbs_g = $9, fat_g = $10, updated_at = now()
+        SET name = $${setBase + 1}, meal = $${setBase + 2}, amount = $${setBase + 3}, unit = $${setBase + 4},
+            kcal = $${setBase + 5}, protein_g = $${setBase + 6}, carbs_g = $${setBase + 7}, fat_g = $${setBase + 8},
+            updated_at = now()
       WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND id = $2 AND deleted_at IS NULL
       RETURNING id, log_date AS "logDate", meal, food_id AS "foodId", name, amount, unit,
                 kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG",
                 created_at AS "createdAt"`,
-    [scope.uid, id, name, meal, amount, unit, kcal, proteinG, carbsG, fatG]
+    [...w.params, name, meal, amount, unit, kcal, proteinG, carbsG, fatG]
   );
   return NextResponse.json({ entry: rows[0] });
 }

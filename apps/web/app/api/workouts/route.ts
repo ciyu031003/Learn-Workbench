@@ -67,7 +67,11 @@ export async function GET(req: Request) {
   if (rows.length === 0) return NextResponse.json({ workouts: [], totals: { sets: 0, reps: 0, volumeKg: 0 } });
 
   const ids = rows.map((r) => Number(r.id));
-  const w2 = scopeWhere(scope, [scope.uid, ids]);
+  /**
+   * 动作明细按上面已鉴权的 workout id 取即可。
+   * workout_items 表没有 anon_id 列（匿名归属只在 workouts 上），
+   * 这里再套 scopeWhere 会拼出 anon_id 条件 → 42703，匿名训练列表整页 500（v2.8.7 真机）。
+   */
   const { rows: itemRows } = await pgPool.query<{
     id: string; workoutId: string; exerciseKey: string | null; exerciseLabel: string;
     sets: number; reps: number; weightKg: string | null; durationSeconds: number; sortOrder: number;
@@ -75,9 +79,9 @@ export async function GET(req: Request) {
     `SELECT id, workout_id AS "workoutId", exercise_key AS "exerciseKey", exercise_label AS "exerciseLabel",
             sets, reps, weight_kg AS "weightKg", duration_seconds AS "durationSeconds", sort_order AS "sortOrder"
        FROM workout_items
-      WHERE user_id IS NOT DISTINCT FROM $1 AND workout_id = ANY($2::bigint[])${w2.sql}
+      WHERE workout_id = ANY($1::bigint[])
       ORDER BY sort_order, id`,
-    w2.params
+    [ids]
   );
 
   const byWorkout = new Map<string, WorkoutItem[]>();

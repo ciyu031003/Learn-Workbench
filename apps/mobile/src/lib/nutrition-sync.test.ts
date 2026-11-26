@@ -151,6 +151,18 @@ describe("flushOutbox · 毒丸跳过", () => {
     const result = await flushOutbox(async () => "retry");
     expect(result).toMatchObject({ sent: 0, dropped: 0, remaining: 2 });
   });
+
+  it("并发 flush 共享同一次发送：同一条记录不会被 POST 两次（v2.8.7 真机重复餐）", async () => {
+    const { enqueue } = await import("./nutrition-outbox");
+    await saveOutbox(enqueue(EMPTY_OUTBOX, makeCreateOp(body("并发"), 1)));
+    const send = vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+      return "ok" as const;
+    });
+    const [a, b] = await Promise.all([flushOutbox(send), flushOutbox(send)]);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(a).toEqual(b);
+  });
 });
 
 describe("flushNutritionOutbox", () => {

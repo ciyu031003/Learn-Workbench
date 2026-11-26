@@ -301,28 +301,39 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
     await flushPending();
     if (my !== loadSeq.current) return;
     try {
+      /**
+       * 读接口一律绕开 HTTP 缓存：RN 的 fetch 不会像浏览器那样把 304 还原成缓存响应体，
+       * 写入成功后刷新会拿到 304 + 空 body，列表停在旧数据（v2.8.7 真机：刚记的餐看不到）。
+       */
+      const getInit: RequestInit = {
+        cache: "no-store",
+        headers: { ...headers(), "Cache-Control": "no-cache" },
+      };
       const [entriesRes, summaryRes, targetRes, waterRes, weightRes] = await Promise.all([
-        fetch(`${getApiUrl()}/api/nutrition?date=${date}`, { headers: headers() }),
+        fetch(`${getApiUrl()}/api/nutrition?date=${date}`, getInit),
         // 日期条的 ✓ / 月历徽标 / 区间汇总一起取（一次请求覆盖当前视图窗口，避免连打 N 次明细）
-        fetch(`${getApiUrl()}/api/nutrition/summary?days=${summaryWindow.days}&end=${summaryWindow.end}`, { headers: headers() }),
+        fetch(`${getApiUrl()}/api/nutrition/summary?days=${summaryWindow.days}&end=${summaryWindow.end}`, getInit),
         fetchNutritionTarget(token).catch(() => null),
         fetchHydration(token).catch(() => null),
         fetchWeight(token, 30).catch(() => null),
       ]);
       if (my !== loadSeq.current) return;
       const d = await readJsonSafe<{ entries?: MealEntry[] }>(entriesRes);
+      /**
+       * 合并发件箱里还没上传成功的条目（v6 P0-3）：否则这次 load 会把乐观入账抹掉。
+       * 只合并**当天**的 create —— 需求 3 的「+ 今日」允许在翻看历史日期时把条目记到今天，
+       * 若不过滤，那条待补发的记录会被并进"昨天"的列表里（看起来像记错了日子）。
+       */
+      const outboxNow = await loadOutbox();
+      const forThisDate: OutboxState = {
+        ops: outboxNow.ops.filter((op) => op.kind !== "create" || op.body.date === date),
+      };
       if (entriesRes.ok && d) {
         const server: MealEntry[] = Array.isArray(d.entries) ? d.entries : [];
-        /**
-         * 合并发件箱里还没上传成功的条目（v6 P0-3）：否则这次 load 会把乐观入账抹掉。
-         * 只合并**当天**的 create —— 需求 3 的「+ 今日」允许在翻看历史日期时把条目记到今天，
-         * 若不过滤，那条待补发的记录会被并进"昨天"的列表里（看起来像记错了日子）。
-         */
-        const outboxNow = await loadOutbox();
-        const forThisDate: OutboxState = {
-          ops: outboxNow.ops.filter((op) => op.kind !== "create" || op.body.date === date),
-        };
         setEntries(mergePendingEntries(server, forThisDate));
+      } else if (entriesRes.status === 304) {
+        // 服务端说"没变"但 RN 拿不到缓存体：保留当前列表，至少把待同步条目补上
+        setEntries((prev) => mergePendingEntries(prev, forThisDate));
       }
       const s = await readJsonSafe<{ summary?: unknown }>(summaryRes);
       // 与窗口一起落库：窗口不匹配时消费方按空处理，宁可不显示也不显示错的月份数字
@@ -750,7 +761,8 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
         if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
         return;
       }
-      if (saveAsCommon) {
+      // 匿名没有账号可挂常用食物：静默跳过，别在成功落餐后再弹一次失败提示
+      if (saveAsCommon && token) {
         const fr = await fetch(getApiUrl() + "/api/nutrition/foods", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...headers() },

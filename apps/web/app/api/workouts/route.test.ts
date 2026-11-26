@@ -77,6 +77,25 @@ describe("GET /api/workouts", () => {
     expect(body.workouts).toEqual([]);
     expect(queryMock).toHaveBeenCalledTimes(1);
   });
+
+  it("匿名列表：动作明细只按 workout_id 查（workout_items 没有 anon_id）", async () => {
+    userScopeMock.mockResolvedValue({ uid: null, anonId: "anon-device-1" });
+    scopeWhereMock.mockImplementation((_scope, base) => {
+      const params = [...(base as unknown[])];
+      params.push("anon-device-1");
+      return { params, sql: ` AND anon_id IS NOT DISTINCT FROM ${params.length}` };
+    });
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ id: "1", name: "训练", exercisedOn: "2026-11-26", durationSeconds: 0, note: null, updatedAt: "x" }],
+      } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+    const res = await GET(new Request("http://localhost/api/workouts?days=7"));
+    expect(res.status).toBe(200);
+    const itemSql = String(queryMock.mock.calls[1][0]);
+    expect(itemSql).not.toContain("anon_id");
+    expect(queryMock.mock.calls[1][1]).toEqual([[1]]);
+  });
 });
 
 describe("POST /api/workouts", () => {

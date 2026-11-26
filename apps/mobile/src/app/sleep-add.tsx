@@ -344,10 +344,16 @@ export default function SleepAddScreen() {
               <View style={styles.previewBody}>
                 <View style={styles.previewDuration}>
                   <Text style={[styles.previewBig, { color: p.ink }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {durationMin ? previewHours : "—"}
-                    <Text style={[styles.previewUnit, { color: p.sub }]}>h</Text>
-                    {durationMin ? String(previewMinutes).padStart(2, "0") : ""}
-                    <Text style={[styles.previewUnit, { color: p.sub }]}>m</Text>
+                    {durationMin ? (
+                      <>
+                        {previewHours}
+                        <Text style={[styles.previewUnit, { color: p.sub }]}>h </Text>
+                        {String(previewMinutes).padStart(2, "0")}
+                        <Text style={[styles.previewUnit, { color: p.sub }]}>m</Text>
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </Text>
                 </View>
                 <View style={styles.previewScore}>

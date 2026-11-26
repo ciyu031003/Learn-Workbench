@@ -370,15 +370,24 @@ export function AddFoodSheet({
                 containerStyle={styles.macroInput}
               />
             </View>
-            <Pressable style={styles.switchRow} onPress={() => setSaveAsCommon((v) => !v)}>
+            <Pressable
+              style={styles.switchRow}
+              disabled={!model.token}
+              onPress={() => {
+                if (model.token) setSaveAsCommon((v) => !v);
+              }}
+            >
               <Switch
-                value={saveAsCommon}
+                value={Boolean(model.token) && saveAsCommon}
+                disabled={!model.token}
                 onValueChange={setSaveAsCommon}
                 trackColor={{ false: colors.chartTrack, true: colors.primary }}
                 thumbColor={colors.controlThumb}
                 ios_backgroundColor={colors.chartTrack}
               />
-              <Text style={styles.switchLabel}>存入常用食物（下次可直接选）</Text>
+              <Text style={styles.switchLabel}>
+                {model.token ? "存入常用食物（下次可直接选）" : "登录后可存入常用食物"}
+              </Text>
             </Pressable>
             <Button
               label="手动添加到这天"
