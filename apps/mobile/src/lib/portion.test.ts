@@ -41,6 +41,11 @@ describe("scaleNutrition / portionPreviewText", () => {
   it("按份量等比缩放并保留 1 位小数", () => {
     expect(scaleNutrition(egg, 2)).toEqual({ kcal: 156, proteinG: 12.6, carbsG: 1.2, fatG: 10.6 });
   });
+  it("Postgres numeric 字符串也要正确换算（v2.8.6 真机：最近吃过 + 记成 0 kcal）", () => {
+    const fromApi = { kcal: "300", proteinG: "6.5", carbsG: "55", fatG: "7" } as unknown as typeof egg;
+    expect(scaleNutrition(fromApi, 1)).toEqual({ kcal: 300, proteinG: 6.5, carbsG: 55, fatG: 7 });
+    expect(portionPreviewText(fromApi, 1)).toBe("≈ 300 kcal · P6.5 C55 F7");
+  });
   it("非法份量按 1 份处理", () => {
     expect(scaleNutrition(egg, 0).kcal).toBe(78);
     expect(scaleNutrition(egg, Number.NaN).kcal).toBe(78);

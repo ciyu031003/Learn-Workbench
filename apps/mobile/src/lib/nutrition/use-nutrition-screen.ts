@@ -9,6 +9,7 @@ import { type TargetProfileInput } from "@/components/target-sheet";
 import { scaleNutrition } from "@/lib/portion";
 import { dailyRecipes } from "@/lib/recipes";
 import { addHydration, addWeight, fetchHydration, fetchNutritionTarget, fetchWeight, removeHydration, saveNutritionTarget, type NutritionProfileDto, type NutritionTargetDto, type WeightPointDto } from "@/lib/wellbeing-client";
+
 import { haptics } from "@/lib/haptics";
 import { EMPTY_OUTBOX, enqueue, flushOutbox, loadOutbox, makeCreateOp, makeDeleteOp, makeUpdateOp, mergePendingEntries, nextLocalId, pendingCount, saveOutbox, toLocalEntry, type MealEntryInput, type OutboxOp, type OutboxState } from "@/lib/nutrition-outbox";
 import { isRetryable, sendNutritionOp, toFlushOutcome } from "@/lib/nutrition-sync";
@@ -24,6 +25,22 @@ import { remainingKcal, sumNutrition, scaleFoodByAmount } from "@learn-workbench
 import { computeMacroItems, computeTarget } from "./derive";
 import { lastPortionOf as lastPortionFor, parsePortionMemo, portionOptions, PORTION_MEMO_KEY, type PortionMemoEntry } from "./portion-memo";
 import { INITIAL_OPEN_GROUPS, MEALS, type ViewMode } from "./constants";
+
+/**
+ * 读接口可能返回 304 / 204 / 空 body（真机缓存命中时就是空字符串）。
+ * 旧实现直接 res.json() 会抛 "Unexpected end of input"，被外层 catch 吞掉，
+ * 页面就停在空数据上（v2.8.6 真机测试：训练列表永远 0 条）。
+ */
+async function readJsonSafe<T>(res: Response): Promise<T | null> {
+  if (res.status === 304) return null;
+  try {
+    const text = await res.text();
+    if (!text) return null;
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
 
 export interface NutritionScreenInput {
   /** 初始日期（从趋势页 ?date= 带进来；非法值由屏幕层回落今天） */
@@ -293,8 +310,8 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
         fetchWeight(token, 30).catch(() => null),
       ]);
       if (my !== loadSeq.current) return;
-      const d = await entriesRes.json();
-      if (entriesRes.ok) {
+      const d = await readJsonSafe<{ entries?: MealEntry[] }>(entriesRes);
+      if (entriesRes.ok && d) {
         const server: MealEntry[] = Array.isArray(d.entries) ? d.entries : [];
         /**
          * 合并发件箱里还没上传成功的条目（v6 P0-3）：否则这次 load 会把乐观入账抹掉。
@@ -307,9 +324,9 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
         };
         setEntries(mergePendingEntries(server, forThisDate));
       }
-      const s = await summaryRes.json();
+      const s = await readJsonSafe<{ summary?: unknown }>(summaryRes);
       // 与窗口一起落库：窗口不匹配时消费方按空处理，宁可不显示也不显示错的月份数字
-      if (summaryRes.ok) setSummaryState({ key: summaryWindowKey, map: toDaySummaryMap(s.summary) });
+      if (summaryRes.ok && s) setSummaryState({ key: summaryWindowKey, map: toDaySummaryMap(s.summary) });
       if (targetRes) {
         setProfile(targetRes.profile);
         setServerTarget(targetRes.target);
@@ -416,8 +433,8 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
           getApiUrl() + `/api/nutrition/foods?sort=recent&limit=24&meal=${meal}`,
           { headers: headers() }
         );
-        const d = await r.json();
-        if (r.ok) setFoods(Array.isArray(d.foods) ? d.foods : []);
+        const d = await readJsonSafe<{ foods?: Food[] }>(r);
+        if (r.ok && d) setFoods(Array.isArray(d.foods) ? d.foods : []);
       } catch {
         // 忽略
       }
@@ -449,8 +466,8 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
             getApiUrl() + `/api/foods/search?q=${encodeURIComponent(q)}&meal=${meal}&limit=12`,
             { headers: headers() }
           );
-          const d = await r.json();
-          if (alive && r.ok) setDbItems(Array.isArray(d.items) ? d.items : []);
+          const d = await readJsonSafe<{ items?: FoodItemHit[] }>(r);
+          if (alive && r.ok && d) setDbItems(Array.isArray(d.items) ? d.items : []);
         } catch {
           if (alive) setDbItems([]);
         } finally {
@@ -844,6 +861,13 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
   /* ---------- P3：饮水 / 体重 / 目标 ---------- */
 
   const onAddWater = async (amountMl: number) => {
+    // 未登录时后端写不进去、也读不回来（真机表现为"点了没反应"）；
+    // 饮水没有本地发件箱，与其静默丢数据，不如直接说明原因。
+    if (!token) {
+      haptics.soft();
+      Alert.alert("登录后才能记录饮水", "饮水记录需要保存到账号；登录后再点「饮水 +250」即可。");
+      return;
+    }
     haptics.light();
     setHydration((prev) => ({ ...prev, totalMl: prev.totalMl + amountMl }));
     setWellnessBusy(true);

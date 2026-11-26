@@ -23,11 +23,17 @@ export function portionPercent(value: number, min = 0.5, max = 3): number {
 
 /** 按份量换算营养（用于「实时预览」文案；服务端也会独立重算一次） */
 export function scaleNutrition(
-  base: { kcal: number; proteinG: number; carbsG: number; fatG: number },
+  base: { kcal: number | string; proteinG: number | string; carbsG: number | string; fatG: number | string },
   amount: number
 ): { kcal: number; proteinG: number; carbsG: number; fatG: number } {
-  const a = Number.isFinite(amount) && amount > 0 ? amount : 1;
-  const r = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * a * 10) / 10;
+  const amountRaw = Number(amount);
+  const a = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 1;
+  // ⚠️ Postgres 的 numeric 经 JSON 返回的是**字符串**（"300"）：必须先 Number() 再判有限性，
+  //    否则 Number.isFinite("300") === false → 预览/入账恒为 0（v2.8.6 真机测试：最近吃过 + 记成 0 kcal）。
+  const r = (n: number | string) => {
+    const v = Number(n);
+    return Math.round((Number.isFinite(v) ? v : 0) * a * 10) / 10;
+  };
   return { kcal: r(base.kcal), proteinG: r(base.proteinG), carbsG: r(base.carbsG), fatG: r(base.fatG) };
 }
 

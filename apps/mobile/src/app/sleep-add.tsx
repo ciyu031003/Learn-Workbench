@@ -53,8 +53,15 @@ export default function SleepAddScreen() {
       prefillRef.current = pending.date;
       setDate(pending.date);
       setDuration(pending.durationMin ?? "");
-      setBedtime(pending.bedtime ?? "");
-      setWakeTime(pending.wakeTime ?? "");
+      // nav-pending 里的入睡/起床是 ISO 时间戳；输入框只接受 23:00 这种时钟文本，
+      // 原样回填会显示 "2026-11-19T15:00:00.000Z"（v2.8.6 真机测试发现）。
+      const clock = (value?: string) => {
+        if (!value) return "";
+        // 已经是 23:00 就直接用；ISO 时间戳再格式化，避免二次解析变成 "—"
+        return /^\d{1,2}:\d{2}$/.test(value.trim()) ? value.trim() : sleepApi.formatClockTime(value);
+      };
+      setBedtime(clock(pending.bedtime));
+      setWakeTime(clock(pending.wakeTime));
       setDeep(pending.deep ?? "");
       setRem(pending.rem ?? "");
       setAwakeCount(pending.awakeCount ?? "");
