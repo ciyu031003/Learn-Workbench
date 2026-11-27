@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
-import { SvgXml } from "react-native-svg";
+import { Defs, LinearGradient, Rect, Stop, Svg, SvgXml } from "react-native-svg";
 import { sanitizeSvgForNative } from "@/lib/svg-sanitize";
 import { KnowledgeMap } from "@/components/knowledge-map";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -421,43 +421,150 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
     );
     return studyTableColumnWidths(headerTexts, rowTexts, columnCount);
   }, [block, columnCount]);
+
+  /**
+   * v2.8.8：宽表横向滚动的可发现性。
+   * 之前只有一条光秃秃的横滑区域，右侧被容器裁掉时看起来像内容丢失。
+   * 这里补三件事：左右渐隐、首次提示、滚动后提示自动收起。
+   * 渐隐用 SVG 渐变而不是叠半透明色块，避免在深浅色主题下出现一条“灰边”。
+   */
+  /** react-native-svg 的渐变 id 在不同原生实现里有作用域差异：每张表生成独立 id，避免同页多表串色 */
+  const fadeScope = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  /** 只在「左/右渐隐该不该出现」翻转时才 setState，滚动过程不重渲染整张表 */
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const edgeRef = useRef({ left: false, right: false });
+  const viewportRef = useRef(0);
+  const contentRef = useRef(0);
+
+  const overflow = contentWidth > viewportWidth + 8;
+  const showLeftFade = overflow && edges.left;
+  const showRightFade = overflow && edges.right;
+  const showHint = overflow && !hintDismissed && !edges.left;
+
+  const syncEdges = (x: number) => {
+    const isOverflow = contentRef.current > viewportRef.current + 8;
+    const next = {
+      left: isOverflow && x > 4,
+      right: isOverflow && x + viewportRef.current < contentRef.current - 6,
+    };
+    if (next.left !== edgeRef.current.left || next.right !== edgeRef.current.right) {
+      edgeRef.current = next;
+      setEdges(next);
+    }
+  };
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tableScroll}>
-      <View style={styles.table}>
-        <View style={[styles.tableRow, styles.tableHeaderRow]}>
-          {Array.from({ length: columnCount }).map((_, column) => (
-            <View key={"h-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
-              {block.headerSegments?.[column] && block.headerSegments[column].length > 0 ? (
-                hasMathSvg(block.headerSegments[column]) ? (
-                  <SegmentRow segments={block.headerSegments[column]} style={styles.tableHeaderText} />
-                ) : (
-                  <InlineSegments segments={block.headerSegments[column]} style={styles.tableHeaderText} />
-                )
-              ) : (
-                <InlineText tokens={block.header[column] ?? []} style={styles.tableHeaderText} />
-              )}
-            </View>
-          ))}
-        </View>
-        {block.rows.map((row, rowIndex) => (
-          <View key={"r-" + rowIndex} style={styles.tableRow}>
-            {Array.from({ length: columnCount }).map((_, column) => (
-              <View key={"c-" + rowIndex + "-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
-                {block.rowSegments?.[rowIndex]?.[column] && block.rowSegments[rowIndex][column].length > 0 ? (
-                  hasMathSvg(block.rowSegments[rowIndex][column]) ? (
-                    <SegmentRow segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+    <View style={styles.tableWrap}>
+      <View
+        style={styles.tableViewport}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          viewportRef.current = width;
+          setViewportWidth(width);
+          setViewportHeight(height);
+          syncEdges(0);
+        }}
+      >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tableScroll}
+          onContentSizeChange={(width) => {
+            contentRef.current = width;
+            setContentWidth(width);
+            syncEdges(0);
+          }}
+          onScroll={(event) => {
+            const x = event.nativeEvent.contentOffset.x;
+            if (x > 12 && !hintDismissed) setHintDismissed(true);
+            syncEdges(x);
+          }}
+          scrollEventThrottle={16}
+        >
+          <View style={styles.table}>
+            <View style={[styles.tableRow, styles.tableHeaderRow]}>
+              {Array.from({ length: columnCount }).map((_, column) => (
+                <View key={"h-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
+                  {block.headerSegments?.[column] && block.headerSegments[column].length > 0 ? (
+                    hasMathSvg(block.headerSegments[column]) ? (
+                      <SegmentRow segments={block.headerSegments[column]} style={styles.tableHeaderText} />
+                    ) : (
+                      <InlineSegments segments={block.headerSegments[column]} style={styles.tableHeaderText} />
+                    )
                   ) : (
-                    <InlineSegments segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
-                  )
-                ) : (
-                  <InlineText tokens={row[column] ?? []} style={styles.tableCellText} />
-                )}
+                    <InlineText tokens={block.header[column] ?? []} style={styles.tableHeaderText} />
+                  )}
+                </View>
+              ))}
+            </View>
+            {block.rows.map((row, rowIndex) => (
+              <View key={"r-" + rowIndex} style={styles.tableRow}>
+                {Array.from({ length: columnCount }).map((_, column) => (
+                  <View key={"c-" + rowIndex + "-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
+                    {block.rowSegments?.[rowIndex]?.[column] && block.rowSegments[rowIndex][column].length > 0 ? (
+                      hasMathSvg(block.rowSegments[rowIndex][column]) ? (
+                        <SegmentRow segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+                      ) : (
+                        <InlineSegments segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+                      )
+                    ) : (
+                      <InlineText tokens={row[column] ?? []} style={styles.tableCellText} />
+                    )}
+                  </View>
+                ))}
               </View>
             ))}
           </View>
-        ))}
+        </ScrollView>
+
+        {showLeftFade ? (
+          <Svg pointerEvents="none" width={64} height={Math.max(1, viewportHeight)} style={[styles.tableFade, styles.tableFadeLeft]}>
+            <Defs>
+              <LinearGradient id={"tableFadeLeft-" + fadeScope} x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor={colors.canvas} stopOpacity="1" />
+                <Stop offset="0.55" stopColor={colors.canvas} stopOpacity="0.66" />
+                <Stop offset="1" stopColor={colors.canvas} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            {/* 必须给数值高度：部分 Android 版本不渲染 Rect 的 height="100%"，渐隐会静默消失 */}
+            <Rect x="0" y="0" width={64} height={Math.max(1, viewportHeight)} fill={"url(#tableFadeLeft-" + fadeScope + ")"} />
+          </Svg>
+        ) : null}
+        {showRightFade ? (
+          <Svg pointerEvents="none" width={64} height={Math.max(1, viewportHeight)} style={[styles.tableFade, styles.tableFadeRight]}>
+            <Defs>
+              <LinearGradient id={"tableFadeRight-" + fadeScope} x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor={colors.canvas} stopOpacity="0" />
+                <Stop offset="0.45" stopColor={colors.canvas} stopOpacity="0.52" />
+                <Stop offset="1" stopColor={colors.canvas} stopOpacity="0.98" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width={64} height={Math.max(1, viewportHeight)} fill={"url(#tableFadeRight-" + fadeScope + ")"} />
+          </Svg>
+        ) : null}
+        {showLeftFade ? (
+          <View pointerEvents="none" style={[styles.tableCue, styles.tableCueLeft]}>
+            <ThemedIcon name="chevron-back" size={12} color={colors.primary} />
+          </View>
+        ) : null}
+        {showRightFade ? (
+          <View pointerEvents="none" style={[styles.tableCue, styles.tableCueRight]}>
+            <ThemedIcon name="chevron-forward" size={12} color={colors.primary} />
+          </View>
+        ) : null}
       </View>
-    </ScrollView>
+
+      {showHint ? (
+        <View style={styles.tableHint} pointerEvents="none">
+          <ThemedIcon name="swap-horizontal" size={13} color={colors.primary} />
+          <Text style={styles.tableHintText}>左右滑动查看完整表格</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -735,7 +842,44 @@ const makeStyles = (colors: ThemeColors) =>
       lineHeight: 26,
       fontStyle: "italic",
     },
+    tableWrap: { gap: 0 },
+    tableViewport: { position: "relative", overflow: "hidden", borderRadius: radius.sm },
     tableScroll: { flexGrow: 0 },
+    /** Android 的横向 ScrollView 会盖住后续兄弟节点，渐隐/提示必须显式抬高 */
+    tableFade: { position: "absolute", top: 0, bottom: 0, zIndex: 3, elevation: 3 },
+    tableFadeLeft: { left: 0 },
+    tableFadeRight: { right: 0 },
+    /** 渐隐上的圆形方向提示：让“右侧还有内容”不只靠一条淡渐变表达 */
+    tableCue: {
+      position: "absolute",
+      top: "50%",
+      width: 26,
+      height: 26,
+      marginTop: -13,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      opacity: 0.94,
+      zIndex: 4,
+      elevation: 4,
+    },
+    tableCueLeft: { left: 7 },
+    tableCueRight: { right: 7 },
+    tableHint: {
+      alignSelf: "flex-end",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primarySoft,
+    },
+    tableHintText: { ...typography.micro, fontWeight: "700", color: colors.primary },
     table: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
