@@ -98,6 +98,8 @@ export interface NutritionProfileDto {
   birthYear: number | null;
   sex: Sex | null;
   activityLevel: ActivityLevel | null;
+  bodyGoal?: "lose" | "maintain" | "gain" | null;
+  trainingDaysPerWeek?: number | null;
 }
 
 /** 收集册条目（v3 M9 深化：按食物名聚合一段时间内的记录） */

@@ -48,9 +48,12 @@ export function buildSleepInsights(input: {
   regularityStdMin: number | null;
   awakeAvg: number | null;
   metNights: number;
+  /** 用户设定的每日睡眠目标（分钟），默认 450 */
+  targetMin?: number;
 }): SleepInsight[] {
   const out: SleepInsight[] = [];
   const { avgDurationMin, deepPct, regularityStdMin, awakeAvg, metNights } = input;
+  const targetMin = Number.isFinite(input.targetMin) && (input.targetMin as number) > 0 ? (input.targetMin as number) : 450;
 
   if (regularityStdMin !== null && Number.isFinite(regularityStdMin)) {
     if (regularityStdMin <= 30) {
@@ -89,12 +92,12 @@ export function buildSleepInsights(input: {
   }
 
   if (avgDurationMin !== null && avgDurationMin > 0) {
-    if (avgDurationMin < 450) {
+    if (avgDurationMin < targetMin) {
       out.push({
         key: "debt",
         tone: "orange",
         title: "有睡眠债",
-        body: "近 7 晚平均 " + formatSleepDuration(avgDurationMin) + "，低于 7h30m 目标；今晚提前 " + Math.min(60, Math.round(450 - avgDurationMin)) + " 分钟上床。",
+        body: "近 7 晚平均 " + formatSleepDuration(avgDurationMin) + "，低于 " + formatSleepDuration(targetMin) + " 目标；今晚提前 " + Math.min(60, Math.round(targetMin - avgDurationMin)) + " 分钟上床。",
       });
     } else {
       out.push({

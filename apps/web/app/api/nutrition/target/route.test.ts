@@ -26,7 +26,7 @@ describe("GET /api/nutrition/target", () => {
     const body = await res.json();
     expect(body.target.kcal).toBe(2000);
     expect(body.target.computed).toBe(false);
-    expect(body.target.note).toContain("填身高");
+    expect(body.target.note).toContain("缺少身高");
   });
 
   it("有身体数据 → BMR × 活动系数（男 30 岁 175cm 70kg 中等活动）", async () => {
@@ -54,11 +54,36 @@ describe("GET /api/nutrition/target", () => {
     const body = await res.json();
     expect(body.target.kcal).toBe(2400);
     // 三大营养素按 2400 kcal 与 70kg 推
-    expect(body.target.proteinG).toBe(Math.round(1.6 * 70));
-    expect(body.target.fatG).toBe(Math.round(0.9 * 70));
+    expect(body.target.proteinG).toBe(Math.round(1.4 * 70));
+    expect(body.target.fatG).toBe(Math.round((2400 * 0.25) / 9));
   });
 });
 
+  it("减脂 + 每周 4 练 → 热量下调且蛋白 2.0 g/kg", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    queryMock.mockResolvedValue({
+      rows: [{
+        weightKg: "70",
+        heightCm: 175,
+        birthYear: 1996,
+        sex: "male",
+        activityLevel: "moderate",
+        bodyGoal: "lose",
+        trainingDaysPerWeek: 4,
+        targetKcal: null,
+        proteinG: null,
+        carbsG: null,
+        fatG: null,
+      }],
+    } as never);
+    const res = await GET();
+    const body = await res.json();
+    expect(body.target.computed).toBe(true);
+    expect(body.target.kcal).toBeLessThan(Math.round(body.target.bmr * 1.55));
+    expect(body.target.proteinG).toBe(140);
+    expect(body.profile.bodyGoal).toBe("lose");
+    expect(body.profile.trainingDaysPerWeek).toBe(4);
+  });
 describe("PUT /api/nutrition/target", () => {
   it("写入身体数据并按 user_id upsert", async () => {
     userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });

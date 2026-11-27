@@ -203,6 +203,17 @@ export function V15NutritionDashboard({
         </View>
       </V15HeroSurface>
 
+      <Pressable
+        onPress={() => router.push("/health-baseline" as never)}
+        accessibilityRole="button"
+        accessibilityLabel="查看目标依据与健康基线"
+        style={({ pressed }) => [styles.basisLink, { backgroundColor: p.card, borderColor: p.line }, pressed && { opacity: 0.7 }]}
+      >
+        <Icon name="target" size={14} weight="regular" color={p.orange} />
+        <Text style={[styles.basisText, { color: p.ink }]}>目标依据 · 7/28 天基线 · 睡眠判定</Text>
+        <Icon name="chevron" size={13} weight="bold" color={p.faint} />
+      </Pressable>
+
       <View style={styles.actions}>
         <PressableScale haptic scaleTo={0.97} onPress={() => onOpenAdd()} style={[styles.actionPrimary, { shadowColor: p.orangeStrong }]}>
           <Icon name="food" size={16} weight="fill" color="#FFFFFF" />
@@ -500,6 +511,8 @@ const makeStyles = (p: ReturnType<typeof useV15>) =>
     macroHead: { flexDirection: "row", alignItems: "center", gap: 3 },
     macroLabel: { ...typography.micro, fontWeight: "600" },
     macroValue: { ...typography.caption, fontWeight: "800", ...tabularNums },
+    basisLink: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 13, borderWidth: 1 },
+    basisText: { ...typography.micro, fontWeight: "700", flex: 1 },
     actions: { flexDirection: "row", gap: 7, marginTop: 10 },
     actionPrimary: {
       flex: 1.2,

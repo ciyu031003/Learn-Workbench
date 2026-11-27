@@ -7,6 +7,7 @@ import { typography } from "@/theme/tokens";
 import { addDaysKey } from "@/lib/v15/dates";
 import { bedtimeWindow, buildSleepInsights, formatSleepDuration, sleepAchievementPct, sleepDebtMinutes } from "@/lib/v15/sleep-model";
 import { sleepApi, SLEEP_SOURCE_LABEL, type SleepHealthRead, type SleepHealthStatus, type SleepNight } from "@/lib/sleep-api";
+import { buildSleepAssessment, healthConfidenceLabel } from "@learn-workbench/shared/health-rules";
 import { bedtimeOffsetMin, bedtimeStdMin, regularityLabelOf, shiftSleepDate, sleepMonthDay, sleepWeekColumns } from "@/lib/sleep-view";
 import { V15Bars, V15RingStack, V15StageRows } from "@/components/v15/v15-charts";
 import { V15Button, V15Card, V15Header, V15IconButton, V15Note, V15Pill, V15ProgressBar, V15Section, useV15Layout } from "@/components/v15/v15-ui";
@@ -16,7 +17,7 @@ import type { V15Palette } from "@/components/v15/v15-theme";
 const HERO_INK = "#F4F1FF";
 const HERO_SUB = "rgba(244,241,255,0.62)";
 const HERO_LINE = "rgba(255,255,255,0.12)";
-const GOAL_MIN = 450;
+const DEFAULT_GOAL_MIN = 450;
 const STAGE_ORDER = ["deep", "light", "rem", "awake"] as const;
 
 const SOURCE_SHORT: Record<string, string> = { health: "系统健康", manual: "手动记录" };
@@ -49,6 +50,7 @@ export function V15SleepDashboard({
   onAuthorize,
   onReRead,
   onOpenHealthSettings,
+  targetMin = DEFAULT_GOAL_MIN,
 }: {
   nights: SleepNight[];
   todayKey: string;
@@ -66,10 +68,13 @@ export function V15SleepDashboard({
   onAuthorize: () => void;
   onReRead: () => void;
   onOpenHealthSettings: () => void;
+  /** 用户设定的每日睡眠目标（分钟） */
+  targetMin?: number;
 }) {
   const p = useV15();
   const layout = useV15Layout();
   const styles = useMemo(() => makeStyles(p), [p]);
+  const goalMin = Number.isFinite(targetMin) && targetMin > 0 ? targetMin : DEFAULT_GOAL_MIN;
   const [scoreDetailOpen, setScoreDetailOpen] = useState(false);
 
   const detailDate = selectedDate ?? nights[0]?.date ?? todayKey;
@@ -89,6 +94,23 @@ export function V15SleepDashboard({
     return Math.round(scored.reduce((sum, value) => sum + value, 0) / scored.length);
   }, [weekNights]);
   const scoreDelta = weekAverageScore !== null && score !== null ? score - weekAverageScore : null;
+
+  const weekAssessment = useMemo(() => {
+    const samples = weekNights.map((night) => {
+      const stages = night.stages;
+      const total = stages ? stages.deep + stages.light + stages.rem + stages.awake : 0;
+      return {
+        date: night.date,
+        durationMin: night.durationMin,
+        efficiencyPct: night.efficiencyPct,
+        deepPct: total > 0 && stages ? (stages.deep / total) * 100 : null,
+        remPct: total > 0 && stages ? (stages.rem / total) * 100 : null,
+        awakeCount: night.awakeCount,
+        bedtimeOffsetMin: bedtimeOffsetMin(night),
+      };
+    });
+    return buildSleepAssessment(samples, { windowDays: 7, endDate: todayKey, targetMin: goalMin });
+  }, [weekNights, todayKey, goalMin]);
 
   const bedtimePoints = useMemo(
     () =>
@@ -111,10 +133,11 @@ export function V15SleepDashboard({
     return bedtimeStdMin(offsets);
   }, [weekColumns]);
 
-  const metNights = weekNights.filter((night) => night.durationMin >= GOAL_MIN).length;
-  const debt = sleepDebtMinutes(weekStats.avgDurationMin, GOAL_MIN, 7);
-  const achievement = sleepAchievementPct(weekStats.avgDurationMin, GOAL_MIN);
+  const metNights = weekNights.filter((night) => night.durationMin >= goalMin).length;
+  const debt = sleepDebtMinutes(weekStats.avgDurationMin, goalMin, 7);
+  const achievement = sleepAchievementPct(weekStats.avgDurationMin, goalMin);
   const insights = buildSleepInsights({
+    targetMin: goalMin,
     avgDurationMin: weekStats.avgDurationMin,
     deepPct: weekStats.avgDeepPct,
     regularityStdMin: weekBedtimeStd,
@@ -347,6 +370,41 @@ export function V15SleepDashboard({
           <View style={[styles.chartDivider, { backgroundColor: p.line }]} />
           <ChartStat value={weekBedtimeStd !== null ? "±" + Math.round(weekBedtimeStd) + "m" : "—"} label="入睡波动" p={p} styles={styles} />
         </View>
+      </V15Card>
+
+      <V15Section p={p} title="基线判定" right={healthConfidenceLabel(weekAssessment.confidence)} />
+      <V15Card p={p}>
+        <View style={styles.chartHead}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.chartTitle, { color: p.ink }]}>
+              {weekAssessment.score === null ? "先记满 5 晚" : "近 7 晚综合分 " + weekAssessment.score}
+            </Text>
+            <Text style={[styles.chartSub, { color: p.sub }]} numberOfLines={2}>
+              {weekAssessment.note}
+            </Text>
+          </View>
+          <V15Pill p={p} tone={weekAssessment.score === null ? "neutral" : weekAssessment.score >= 80 ? "green" : weekAssessment.score >= 60 ? "amber" : "orange"} label={weekAssessment.score === null ? "数据不足" : weekAssessment.score >= 80 ? "优秀" : weekAssessment.score >= 60 ? "一般" : "需补觉"} />
+        </View>
+        <View style={{ gap: 7, marginTop: 12 }}>
+          {weekAssessment.components.map((component) => (
+            <View key={component.key} style={styles.assessmentRow}>
+              <Text style={[styles.assessmentLabel, { color: p.sub }]} numberOfLines={1}>{component.label}</Text>
+              <View style={{ flex: 1 }}>
+                <V15ProgressBar p={p} pct={component.available ? component.score : 0} color={component.score >= 75 ? p.green : component.score >= 50 ? p.amber : p.orange} height={4} />
+              </View>
+              <Text style={[styles.assessmentValue, { color: p.ink }]}>{component.available ? component.score : "—"}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable
+          onPress={() => router.push("/health-baseline" as never)}
+          accessibilityRole="button"
+          accessibilityLabel="查看完整健康基线"
+          style={[styles.assessmentLink, { borderTopColor: p.line }]}
+        >
+          <Text style={[styles.assessmentLinkText, { color: p.orange }]}>查看 7 / 28 天完整判定与提醒</Text>
+          <Icon name="chevron" size={13} weight="bold" color={p.orange} />
+        </Pressable>
       </V15Card>
 
       <V15Section p={p} title="规律性" right={stabilityLabel} />
@@ -637,6 +695,11 @@ const makeStyles = (p: V15Palette) =>
     chartHead: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     chartTitle: { ...typography.headline, fontWeight: "800" },
     chartSub: { ...typography.meta, marginTop: 2 },
+    assessmentRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    assessmentLabel: { ...typography.micro, width: 64 },
+    assessmentValue: { ...typography.micro, fontWeight: "800", fontVariant: ["tabular-nums"], width: 26, textAlign: "right" },
+    assessmentLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, paddingTop: 10, borderTopWidth: 1 },
+    assessmentLinkText: { ...typography.caption, fontWeight: "700" },
     chartStats: { flexDirection: "row", alignItems: "center", paddingTop: 11, marginTop: 12, borderTopWidth: 1 },
     chartStat: { flex: 1, alignItems: "center", gap: 1 },
     chartStatValue: { ...typography.headline, fontWeight: "800", fontVariant: ["tabular-nums"] },

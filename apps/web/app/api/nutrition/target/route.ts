@@ -18,6 +18,8 @@ interface ProfileRow {
   birthYear: number | null;
   sex: string | null;
   activityLevel: string | null;
+  bodyGoal: string | null;
+  trainingDaysPerWeek: number | null;
   targetKcal: string | null;
   proteinG: string | null;
   carbsG: string | null;
@@ -25,7 +27,7 @@ interface ProfileRow {
 }
 
 const SELECT_COLS = `weight_kg AS "weightKg", height_cm AS "heightCm", birth_year AS "birthYear",
-  sex, activity_level AS "activityLevel", nutrition_target_kcal AS "targetKcal",
+  sex, activity_level AS "activityLevel", body_goal AS "bodyGoal", training_days_per_week AS "trainingDaysPerWeek", nutrition_target_kcal AS "targetKcal",
   protein_target_g AS "proteinG", carbs_target_g AS "carbsG", fat_target_g AS "fatG"`;
 
 async function loadProfile(): Promise<{ row: ProfileRow | null; scope: Awaited<ReturnType<typeof userScope>> }> {
@@ -58,6 +60,8 @@ function toView(row: ProfileRow | null) {
       birthYear: row?.birthYear ?? null,
       sex,
       activityLevel,
+      bodyGoal: row?.bodyGoal === "lose" || row?.bodyGoal === "gain" || row?.bodyGoal === "maintain" ? row.bodyGoal : null,
+      trainingDaysPerWeek: row?.trainingDaysPerWeek ?? null,
     },
     {
       kcal: num(row?.targetKcal),
@@ -78,6 +82,8 @@ export async function GET() {
       birthYear: row?.birthYear ?? null,
       sex: row?.sex ?? null,
       activityLevel: row?.activityLevel ?? null,
+      bodyGoal: row?.bodyGoal ?? null,
+      trainingDaysPerWeek: row?.trainingDaysPerWeek ?? null,
     },
     overrides: {
       kcal: num(row?.targetKcal),
@@ -128,11 +134,24 @@ export async function PUT(req: Request) {
     sex,
     activity_level: activityLevel,
   };
-  const optional: Record<string, number | null> = {};
+  const optional: Record<string, number | string | null> = {};
   if (targetKcal !== undefined) optional.nutrition_target_kcal = targetKcal;
   if (proteinG !== undefined) optional.protein_target_g = proteinG;
   if (carbsG !== undefined) optional.carbs_target_g = carbsG;
   if (fatG !== undefined) optional.fat_target_g = fatG;
+  if (body.bodyGoal !== undefined) {
+    optional.body_goal =
+      body.bodyGoal === "lose" || body.bodyGoal === "maintain" || body.bodyGoal === "gain"
+        ? body.bodyGoal
+        : null;
+  }
+  if (body.trainingDaysPerWeek !== undefined) {
+    const n = Number(body.trainingDaysPerWeek);
+    optional.training_days_per_week =
+      body.trainingDaysPerWeek === null || !Number.isFinite(n)
+        ? null
+        : Math.round(Math.min(7, Math.max(0, n)));
+  }
 
   const cols = [...Object.keys(base), ...Object.keys(optional)];
   const vals = [...Object.values(base), ...Object.values(optional)];
@@ -165,6 +184,8 @@ export async function PUT(req: Request) {
       birthYear: row?.birthYear ?? null,
       sex: row?.sex ?? null,
       activityLevel: row?.activityLevel ?? null,
+      bodyGoal: row?.bodyGoal ?? null,
+      trainingDaysPerWeek: row?.trainingDaysPerWeek ?? null,
     },
     target: toView(row),
   });

@@ -28,6 +28,7 @@ import { useAppStore } from "@/store/app-store";
 import { fetchIdentity } from "@/lib/identity";
 import { setMotionUserEnabled } from "@/theme/motion";
 import { migrateLegacySports } from "@/store/sport-legacy";
+import { rearmStoredHealthReminders } from "@/lib/health/health-reminder";
 import {
   classifyDeviceTier,
   describeStartupDecision,
@@ -149,6 +150,15 @@ export default function RootLayout() {
     const apply = (enabled: boolean | undefined) => setMotionUserEnabled(enabled !== false);
     apply(useAppStore.getState().motionEnabled);
     return useAppStore.subscribe((state) => apply(state.motionEnabled));
+  }, []);
+
+  /**
+   * 健康提醒冷启动续期（v2.8.9）：本地闹钟只排未来 7 天，
+   * 每次冷启动按上次缓存的计划重排一次，避免用户不打开健康基线页就断掉提醒。
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => void rearmStoredHealthReminders(), 2500);
+    return () => clearTimeout(timer);
   }, []);
 
   const releaseSplash = useCallback(

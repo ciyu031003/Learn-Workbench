@@ -38,6 +38,23 @@ describe("computeTarget（目标计算）", () => {
   });
 });
 
+  it("减脂 + 每周 4 练：营养页目标与健康基线同一口径", () => {
+    const t = computeTarget(
+      {
+        weightKg: 70,
+        heightCm: 175,
+        birthYear: 1998,
+        sex: "male",
+        activityLevel: "moderate",
+        bodyGoal: "lose",
+        trainingDaysPerWeek: 4,
+      } as never,
+      null
+    );
+    expect(t.proteinG).toBe(140);
+    expect(t.proteinG).toBeGreaterThan(0);
+    expect(t.kcal).toBeLessThan(2600);
+  });
 describe("computeMacroItems（换算 + 空态）", () => {
   it("空记录：value 全 0，但环仍按目标绘制（空态可见）", () => {
     const items = computeMacroItems({ proteinG: 0, carbsG: 0, fatG: 0 }, { proteinG: 120, carbsG: 200, fatG: 60 });

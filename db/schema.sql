@@ -1113,6 +1113,11 @@ CREATE TABLE IF NOT EXISTS user_settings (
   protein_target_g numeric,                       -- 手动覆盖三大营养素（来自迁移 044）
   carbs_target_g numeric,
   fat_target_g numeric,
+  body_goal     text,                              -- lose/maintain/gain（来自迁移 096）
+  training_days_per_week int,                      -- 每周计划训练天数（来自迁移 096）
+  sleep_target_minutes int,                        -- 每日睡眠目标分钟（来自迁移 096）
+  bedtime_target text,                             -- 建议入睡时刻 HH:mm（来自迁移 096）
+  reminder_prefs jsonb NOT NULL DEFAULT '{}'::jsonb, -- 健康提醒偏好（来自迁移 096）
   education     jsonb,
   experiences   jsonb,
   current_city  text,

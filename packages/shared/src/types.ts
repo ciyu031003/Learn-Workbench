@@ -157,6 +157,10 @@ export interface BodyProfile {
   birthYear?: number | null;
   sex?: Sex | null;
   activityLevel?: ActivityLevel | null;
+  /** 减脂 / 维持 / 增肌；NULL 视为 maintain（迁移 096） */
+  bodyGoal?: "lose" | "maintain" | "gain" | null;
+  /** 每周计划训练天数，用于个性化蛋白目标（迁移 096） */
+  trainingDaysPerWeek?: number | null;
 }
 
 export interface CalorieTargetResult {

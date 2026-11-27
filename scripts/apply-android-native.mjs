@@ -32,6 +32,11 @@ const FILES = [
   // v1.58.0 P10：OTA 后台下载（系统 DownloadManager，熄屏不断、通知栏进度、重启认领）
   "app/src/main/java/com/yuanabd/learnworkbench/BackgroundDownloadModule.kt",
   "app/src/main/java/com/yuanabd/learnworkbench/BackgroundDownloadPackage.kt",
+  // v2.8.9：健康提醒本地通知（AlarmManager + BroadcastReceiver，不新增权限）
+  "app/src/main/java/com/yuanabd/learnworkbench/HealthReminderModule.kt",
+  "app/src/main/java/com/yuanabd/learnworkbench/HealthReminderPackage.kt",
+  "app/src/main/java/com/yuanabd/learnworkbench/HealthReminderReceiver.kt",
+  "app/src/main/res/drawable/ic_health_reminder.xml",
 ];
 
 /** 需要注册到 MainApplication 的手写 ReactPackage（幂等：已存在就跳过） */
@@ -41,6 +46,10 @@ const REACT_PACKAGES = [
   {
     call: "BackgroundDownloadPackage()",
     comment: "// 手写原生模块（不走 prebuild）：OTA 后台下载（系统 DownloadManager，熄屏不断）",
+  },
+  {
+    call: "HealthReminderPackage()",
+    comment: "// 手写原生模块（不走 prebuild）：健康提醒本地通知",
   },
 ];
 
@@ -87,6 +96,13 @@ const SERVICE_BLOCK = [
   '        android:value="focus_timer" />',
   '    </service>',
 ].join("\n");
+const REMINDER_RECEIVER_BLOCK = [
+  '    <!-- 健康提醒：AlarmManager 触发本地通知（v2.8.9） -->',
+  '    <receiver',
+  '      android:name=".HealthReminderReceiver"',
+  '      android:exported="false">',
+  '    </receiver>',
+].join("\n");
 
 function patchManifest(text) {
   let out = text;
@@ -108,6 +124,9 @@ function patchManifest(text) {
   }
   if (!out.includes('android:name=".FocusTimerService"')) {
     out = out.replace("  </application>", SERVICE_BLOCK + "\n  </application>");
+  }
+  if (!out.includes('android:name=".HealthReminderReceiver"')) {
+    out = out.replace("  </application>", REMINDER_RECEIVER_BLOCK + "\n  </application>");
   }
 
   // Health Connect：Android 13- 的健康数据是独立 App（com.google.android.apps.healthdata），

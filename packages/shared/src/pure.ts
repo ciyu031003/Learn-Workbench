@@ -8,6 +8,7 @@ import type { BodyProfile, CalorieTargetResult, DailyReadiness, DailyReadinessIn
 import { ACTIVITY_FACTORS, COMMON_WEAK_PASSWORDS, DAILY_READINESS_WEIGHTS, DEFAULT_NUTRITION_TARGETS, DEFAULT_SPORT_GEAR_LABELS, EQUIPMENT_CATEGORIES, EXERCISE_CATALOG, KCAL_TARGET_MAX, KCAL_TARGET_MIN, LEGACY_GEAR_LABEL_ALIASES, RESUME_TEMPLATES, SPORTS_CARD_PANEL_TITLE, SPORT_ARCHIVE_EN, SPORT_CATALOG, SPORT_GEAR_TEMPLATES, TRAINING_LOAD_MIN_HEIGHT, allJobCategories, defaultCrawlerPlatforms, jobSourceLabels } from "./labels";
 import { isScheduled, toDateKey, fromDateKey } from "./dates";
 import { todayISOInZone } from "./domains/date";
+import { buildEnergyPlan } from "./health-rules";
 
 /** 证书有效期提醒（V3）：按到期天数分档，供 UI 显示「30 天后到期」等徽标 */
 export function certificateExpiryInfo(
@@ -473,19 +474,32 @@ export function computeCalorieTarget(
 }
 
 /**
- * 由热量目标推三大营养素（蛋白 1.6g/kg、脂肪 0.9g/kg，碳水补足）。
+ * 由热量目标推三大营养素（与 buildEnergyPlan 同一口径）：
+ *  - 蛋白质：目标基线 1.4 / 减脂 1.8 / 增肌 1.6 g/kg，训练 >=3 天 +0.2，封顶 2.2；
+ *  - 脂肪：目标热量 25%，且不低于 0.6 g/kg；
+ *  - 碳水：补足剩余热量，最低 50g。
  * 返回单值；UI 侧用 nutritionTargetRange() 展示成区间（D3）。
  */
 export function macroTargetsFromKcal(
   kcal: number,
-  weightKg: number
+  weightKg: number,
+  options: { bodyGoal?: "lose" | "maintain" | "gain" | null; trainingDaysPerWeek?: number | null } = {}
 ): { proteinG: number; carbsG: number; fatG: number } {
   const k = Number.isFinite(kcal) && kcal > 0 ? kcal : DEFAULT_NUTRITION_TARGETS.kcal;
   const w = Number.isFinite(weightKg) && weightKg > 0 ? weightKg : 60;
-  const proteinG = Math.round(Math.min(2.4, Math.max(1.2, 1.6)) * w);
-  const fatG = Math.round(0.9 * w);
-  const carbsKcal = k - proteinG * 4 - fatG * 9;
-  const carbsG = Math.max(50, Math.round(carbsKcal / 4));
+  const goal = options.bodyGoal === "lose" || options.bodyGoal === "gain" ? options.bodyGoal : "maintain";
+  const trainingDays =
+    typeof options.trainingDaysPerWeek === "number" && Number.isFinite(options.trainingDaysPerWeek)
+      ? Math.max(0, Math.min(7, Math.round(options.trainingDaysPerWeek)))
+      : null;
+  const basePerKg = goal === "lose" ? 1.8 : goal === "gain" ? 1.6 : 1.4;
+  const proteinPerKg = Math.min(2.2, Math.max(1.2, basePerKg + (trainingDays !== null && trainingDays >= 3 ? 0.2 : 0)));
+  const proteinG = Math.round(w * proteinPerKg);
+  const minFatKcal = w * 0.6 * 9;
+  const maxFatKcal = Math.max(minFatKcal, k - proteinG * 4 - 50 * 4);
+  const fatKcal = Math.min(maxFatKcal, Math.max(minFatKcal, k * 0.25));
+  const fatG = Math.max(1, Math.round(fatKcal / 9));
+  const carbsG = Math.max(50, Math.round((k - proteinG * 4 - fatG * 9) / 4));
   return { proteinG, carbsG, fatG };
 }
 
@@ -494,18 +508,35 @@ export function buildNutritionTargetView(
   overrides?: { kcal?: number | null; proteinG?: number | null; carbsG?: number | null; fatG?: number | null } | null,
   now: Date = new Date()
 ): NutritionTargetView {
-  const base = computeCalorieTarget(profile, DEFAULT_NUTRITION_TARGETS.kcal, now);
-  const kcal = overrides?.kcal && overrides.kcal > 0 ? Math.round(overrides.kcal) : base.kcal;
-  const macroBase = macroTargetsFromKcal(kcal, profile.weightKg);
+  const plan = buildEnergyPlan(
+    {
+      weightKg: profile.weightKg,
+      heightCm: profile.heightCm ?? null,
+      birthYear: profile.birthYear ?? null,
+      sex: profile.sex ?? null,
+      activityLevel: profile.activityLevel ?? null,
+      bodyGoal: profile.bodyGoal ?? null,
+      trainingDaysPerWeek: profile.trainingDaysPerWeek ?? null,
+    },
+    now
+  );
+  const kcal = overrides?.kcal && overrides.kcal > 0 ? Math.round(overrides.kcal) : plan.kcal;
+  const macroBase = macroTargetsFromKcal(kcal, profile.weightKg, {
+    bodyGoal: profile.bodyGoal,
+    trainingDaysPerWeek: profile.trainingDaysPerWeek,
+  });
   return {
     kcal,
     proteinG: overrides?.proteinG && overrides.proteinG > 0 ? Math.round(overrides.proteinG) : macroBase.proteinG,
     carbsG: overrides?.carbsG && overrides.carbsG > 0 ? Math.round(overrides.carbsG) : macroBase.carbsG,
     fatG: overrides?.fatG && overrides.fatG > 0 ? Math.round(overrides.fatG) : macroBase.fatG,
-    computed: base.computed,
-    bmr: base.bmr,
-    factor: base.factor,
-    note: base.note,
+    computed: plan.computed,
+    bmr: plan.bmr,
+    factor: plan.activityFactor,
+    note:
+      plan.bmr !== null
+        ? `BMR ${plan.bmr} × ${plan.activityFactor} ≈ ${plan.tdee} kcal · 蛋白质 ${plan.proteinPerKg} g/kg`
+        : plan.notes[0],
   };
 }
 

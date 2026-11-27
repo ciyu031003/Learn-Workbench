@@ -17,6 +17,7 @@ import { todayISO } from "@learn-workbench/shared/dates";
 import { V15SleepDashboard } from "@/components/sleep/v15-sleep-dashboard";
 import { V15Scroll } from "@/components/v15/v15-ui";
 import { useV15 } from "@/components/v15/v15-theme";
+import { useSleepTarget } from "@/lib/health/use-sleep-target";
 
 /**
  * 睡眠分析（V15）。
@@ -28,6 +29,7 @@ import { useV15 } from "@/components/v15/v15-theme";
 export default function SleepScreen() {
   const v15 = useV15();
   const todayKey = useMemo(() => todayISO(), []);
+  const sleepTargetMin = useSleepTarget();
 
   const [localNights, setLocalNights] = useState<SleepNight[]>([]);
   const [healthNights, setHealthNights] = useState<SleepNight[]>([]);
@@ -172,6 +174,7 @@ export default function SleepScreen() {
           onAuthorize={() => void authorize()}
           onReRead={() => void refreshHealth()}
           onOpenHealthSettings={openSettings}
+          targetMin={sleepTargetMin}
         />
       </V15Scroll>
     </View>

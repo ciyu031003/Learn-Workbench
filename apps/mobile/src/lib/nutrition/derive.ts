@@ -34,6 +34,8 @@ export function computeTarget(
       birthYear: profile?.birthYear ?? null,
       sex: profile?.sex ?? null,
       activityLevel: profile?.activityLevel ?? null,
+      bodyGoal: profile?.bodyGoal ?? null,
+      trainingDaysPerWeek: profile?.trainingDaysPerWeek ?? null,
     },
     serverTarget
       ? {

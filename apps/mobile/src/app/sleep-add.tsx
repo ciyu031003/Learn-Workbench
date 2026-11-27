@@ -80,32 +80,36 @@ export default function SleepAddScreen() {
     }, [])
   );
 
+  // 新增/编辑按「当前选中的日期」判定：点 + 永远从今天开始，选到哪一天就编辑哪一天；
+  // 选到没有记录的日期时清空表单，避免把今天的数据「移动」到过去（v2.8.9 实机回归修复）。
   const editingNight = useMemo(
-    () => weekNights.find((night) => night.date === initialDate) ?? null,
-    [initialDate, weekNights]
+    () => weekNights.find((night) => night.date === date) ?? null,
+    [date, weekNights]
   );
 
   useEffect(() => {
     let active = true;
     void (async () => {
       const local = normalizeSleepNights(await sleepApi.loadSleepNights());
-      if (!active) return;
-      setWeekNights(local);
-      const current = prefillRef.current === initialDate ? null : local.find((night) => night.date === initialDate);
-      if (current) {
-        setDuration(sleepApi.formatSleepMinutes(current.durationMin));
-        setBedtime(current.bedtime ? sleepApi.formatClockTime(current.bedtime) : "");
-        setWakeTime(current.wakeTime ? sleepApi.formatClockTime(current.wakeTime) : "");
-        setDeep(current.stages ? String(Math.round(current.stages.deep)) : "");
-        setRem(current.stages ? String(Math.round(current.stages.rem)) : "");
-        setAwakeCount(current.awakeCount === null ? "" : String(Math.round(current.awakeCount)));
-        setEfficiency(current.efficiencyPct === null ? "" : String(Math.round(current.efficiencyPct)));
-      }
+      if (active) setWeekNights(local);
     })();
     return () => {
       active = false;
     };
-  }, [initialDate]);
+  }, []);
+
+  // 选中日期变化时：有记录就回填，没有就清空。nav-pending 已回填的日期不再覆盖用户输入。
+  useEffect(() => {
+    if (prefillRef.current === date) return;
+    const current = weekNights.find((night) => night.date === date) ?? null;
+    setDuration(current ? sleepApi.formatSleepMinutes(current.durationMin) : "");
+    setBedtime(current?.bedtime ? sleepApi.formatClockTime(current.bedtime) : "");
+    setWakeTime(current?.wakeTime ? sleepApi.formatClockTime(current.wakeTime) : "");
+    setDeep(current?.stages ? String(Math.round(current.stages.deep)) : "");
+    setRem(current?.stages ? String(Math.round(current.stages.rem)) : "");
+    setAwakeCount(current?.awakeCount === null || current?.awakeCount === undefined ? "" : String(Math.round(current.awakeCount)));
+    setEfficiency(current?.efficiencyPct === null || current?.efficiencyPct === undefined ? "" : String(Math.round(current.efficiencyPct)));
+  }, [date, weekNights]);
 
   const bedtimeIso = useMemo(
     () => (bedtime.trim() ? sleepClockToIso(date, bedtime, "bedtime") : null),
@@ -227,12 +231,9 @@ export default function SleepAddScreen() {
       setError("保存到本机失败，再试一次");
       return;
     }
-    if (editingNight && editingNight.date !== date) {
-      await sleepApi.deleteSleepNight(editingNight.date);
-    }
     haptics.success();
     goBack();
-  }, [awakeNum, bedtime, bedtimeIso, date, deep, deepMin, durationMin, editingNight, efficiencyNum, rem, remMin, wakeIso, wakeTime]);
+  }, [awakeNum, bedtime, bedtimeIso, date, deep, deepMin, durationMin, efficiencyNum, rem, remMin, wakeIso, wakeTime]);
 
   const remove = useCallback(() => {
     Alert.alert("删除这一晚？", "本机记录会被删除；若系统健康数据里仍有这一晚，重新读取会再次出现。", [
@@ -259,7 +260,7 @@ export default function SleepAddScreen() {
             p={p}
             kicker="LOG SLEEP"
             title={editingNight ? "编辑睡眠" : "记录睡眠"}
-            subtitle={editingNight ? "修改这一晚 · 同一天保存会覆盖原记录" : "补录一晚 · 自动计算时长与评分"}
+            subtitle={editingNight ? "修改这一晚 · 保存会覆盖原记录" : "补录一晚 · 自动计算时长与评分"}
             onBack={() => goBack()}
             actions={<V15IconButton p={p} icon="close" label="关闭" onPress={() => goBack()} size={16} weight="bold" />}
           />

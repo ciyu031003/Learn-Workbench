@@ -9,6 +9,7 @@ import { GrowthReveal } from "@/components/growth/growth-reveal";
 import { typography, type ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import type { GrowthScreenData } from "@/components/growth/use-growth-data";
+import { useSleepTarget } from "@/lib/health/use-sleep-target";
 
 /**
  * 成长洞察 · FoodNoms 仪表盘（对齐 demo v12 renderGrowth）。
@@ -50,6 +51,8 @@ export function GrowthDashboard({
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const sleepTargetMin = useSleepTarget();
+  const sleepTargetHours = sleepTargetMin / 60;
   const now = new Date();
   /** 今日热量：未记录时按 0 参与进度，但展示用「—」区分「没记」和「真的 0」。 */
   const dietKcal = growth.dietKcal ?? 0;
@@ -72,7 +75,7 @@ export function GrowthDashboard({
 
   const proteinTarget = growth.nutritionTarget?.proteinG ?? 0;
   const proteinToday = growth.todaySummary?.proteinG ?? 0;
-  const sleepPct = growth.sleepHours === null ? 0 : clamp01(growth.sleepHours / 8);
+  const sleepPct = growth.sleepHours === null ? 0 : clamp01(growth.sleepHours / sleepTargetHours);
   const kcalPct = clamp01(dietKcal / Math.max(1, growth.dietTarget));
   const workoutPct = clamp01(growth.weekWorkouts / 3);
   const waterPct = clamp01(growth.waterMl / Math.max(1, growth.waterTarget));
@@ -350,8 +353,28 @@ export function GrowthDashboard({
         </GrowthReveal>
       </View>
 
+      {/* 健康基线 */}
+      <GrowthReveal index={7} style={styles.full}>
+        <Pressable
+          onPress={() => router.push("/health-baseline" as never)}
+          style={styles.card}
+          accessibilityRole="button"
+          accessibilityLabel="打开健康基线"
+        >
+          <View style={styles.cardHead}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.cardTitle}>健康基线</Text>
+              <Text style={styles.cardSub}>BMR · 7/28 天平均 · 睡眠判定 · 主动提醒</Text>
+            </View>
+            <View style={[styles.dailyPill, { backgroundColor: ORANGE_SOFT }]}>
+              <Text style={[styles.dailyPillText, { color: ORANGE }]}>查看</Text>
+            </View>
+          </View>
+        </Pressable>
+      </GrowthReveal>
+
       {/* 今天的状态 */}
-      <GrowthReveal index={7}>
+      <GrowthReveal index={8}>
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>今天的状态</Text>
           <Pressable hitSlop={8} onPress={onOpenInsights} accessibilityRole="button" accessibilityLabel="查看完整数据">
@@ -360,21 +383,21 @@ export function GrowthDashboard({
         </View>
       </GrowthReveal>
       <View style={styles.goalGrid}>
-        <GrowthReveal index={8} style={styles.half}>
+        <GrowthReveal index={9} style={styles.half}>
           <GoalCard
             pct={sleepPct}
             value={growth.sleepHours === null ? "—" : growth.sleepHours.toFixed(1)}
             unit="h"
             color={PURPLE}
             name="睡眠"
-            sub={growth.sleepHours === null ? "还没有记录" : "目标 8 小时"}
+            sub={growth.sleepHours === null ? "还没有记录" : "目标 " + (Number.isInteger(sleepTargetHours) ? sleepTargetHours : sleepTargetHours.toFixed(1)) + " 小时"}
             footLeft={growth.sleepHours === null ? "昨晚" : "昨晚睡眠"}
-            footRight={growth.sleepHours !== null && growth.sleepHours >= 7 ? "良好" : "不足"}
-            good={growth.sleepHours !== null && growth.sleepHours >= 7}
+            footRight={growth.sleepHours !== null && growth.sleepHours >= sleepTargetHours - 0.5 ? "良好" : "不足"}
+            good={growth.sleepHours !== null && growth.sleepHours >= sleepTargetHours - 0.5}
             onPress={() => router.push("/sleep" as never)}
           />
         </GrowthReveal>
-        <GrowthReveal index={9} style={styles.half}>
+        <GrowthReveal index={10} style={styles.half}>
           <GoalCard
             pct={kcalPct}
             value={dietKcal > 0 ? String(dietKcal) : "—"}
@@ -387,7 +410,7 @@ export function GrowthDashboard({
             onPress={() => router.push("/nutrition" as never)}
           />
         </GrowthReveal>
-        <GrowthReveal index={10} style={styles.half}>
+        <GrowthReveal index={11} style={styles.half}>
           <GoalCard
             pct={workoutPct}
             value={String(growth.exerciseMinutes)}
@@ -400,7 +423,7 @@ export function GrowthDashboard({
             onPress={() => router.push("/workout-add" as never)}
           />
         </GrowthReveal>
-        <GrowthReveal index={11} style={styles.half}>
+        <GrowthReveal index={12} style={styles.half}>
           <GoalCard
             pct={waterPct}
             value={(growth.waterMl / 1000).toFixed(2)}
@@ -416,14 +439,14 @@ export function GrowthDashboard({
       </View>
 
       {/* 快捷记录 */}
-      <GrowthReveal index={12}>
+      <GrowthReveal index={13}>
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>快捷记录</Text>
         </View>
       </GrowthReveal>
       <View style={styles.quickRow}>
-        <QuickAction icon="food" label="记一餐" onPress={() => router.push("/nutrition" as never)} />
-        <QuickAction icon="moon" label="记录睡眠" onPress={() => router.push("/sleep" as never)} />
+        <QuickAction icon="food" label="记一餐" onPress={() => router.push("/nutrition-add" as never)} />
+        <QuickAction icon="moon" label="记录睡眠" onPress={() => router.push("/sleep-add" as never)} />
         <QuickAction icon="workout" label="记录训练" onPress={() => router.push("/workout-add" as never)} />
       </View>
     </View>
@@ -508,7 +531,7 @@ function GoalCard({
         </RingProgress>
         <View style={styles.goalCopy}>
           <Text style={styles.goalName}>{name}</Text>
-          <Text style={styles.goalSub} numberOfLines={1}>
+          <Text style={styles.goalSub} numberOfLines={2}>
             {sub}
           </Text>
         </View>

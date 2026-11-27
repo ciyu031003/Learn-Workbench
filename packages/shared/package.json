@@ -16,7 +16,8 @@
     "./md-lite": "./src/md-lite.ts",
     "./focus-scenes": "./src/focus-scenes.ts",
     "./domains": "./src/domains/index.ts",
-    "./sync": "./src/sync.ts"
+    "./sync": "./src/sync.ts",
+    "./health-rules": "./src/health-rules.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -153,6 +153,7 @@ export function TargetSheet({
             {nutritionTargetRange(preview.fatG).max}g
           </Text>
           <Text style={styles.previewHint}>三大营养素以区间展示（落在区间内即为达标）。</Text>
+          <Text style={styles.previewHint}>减脂 / 增肌、训练频率、睡眠目标与提醒，在「成长 → 健康基线」统一设置。</Text>
         </View>
       </SheetSection>
     </BottomSheet>

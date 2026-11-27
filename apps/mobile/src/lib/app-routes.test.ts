@@ -53,6 +53,7 @@ const EXPECTED_ROUTES = [
   "/exam-408-viz-player",
   "/exam-408-drill",
   "/habits",
+  "/health-baseline",
   "/interview",
   // P3-3A：岗位详情页 / 我的收藏（招花列表点卡片、收藏 icon 进入）
   // 2026-11 新增：岗位 3D 卡组（职业 hub「卡片浏览」进入）
