@@ -7,6 +7,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -23,8 +24,10 @@ import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } f
  * 岗位卡组（对齐 demo「职业 · 岗位卡片」）。
  *
  * - 单张卡居中、3D 悬浮（拖动时轻微 rotateX/rotate，松手回正）；
- * - 左右滑动切卡；切换过程盖一层 BlurView 做**高斯模糊过渡**，
- *   同时旧卡淡出、新卡从侧向落位 —— 两张卡的文字不会在交叉淡入中重叠；
+ * - 卡片本体是一整块不透明材质：surfaceStrong 打底 + 极淡主色 wash + 装饰环，
+ *   不再用 BlurView 当卡面底材（半透明底会让边缘发灰、内容区像贴了一块白矩形）；
+ * - 左右滑动 = 旧卡滑出 → 高斯模糊盖满 → 遮罩下换卡 → 新卡在模糊里落位 → 模糊退场，
+ *   换字永远发生在完全模糊的一帧，不会出现两张卡文字交叉或闪一下；
  * - 卡片底部是唯一主 CTA「一键投递」，收藏在右上角；
  * - 左右切换按钮放在卡片下方并留出 26pt 间距，不贴着卡边。
  */
@@ -33,6 +36,10 @@ const CARD_MAX_W = 380;
 const CARD_HEIGHT_RATIO = 0.5;
 const SWIPE_RATIO = 0.22;
 const SWIPE_VELOCITY = 720;
+
+function salaryOf(job: JobPostingListItem): string {
+  return job.salaryText || (job.salaryMin && job.salaryMax ? `${job.salaryMin}-${job.salaryMax}K` : "薪资面议");
+}
 
 export function JobDeck({
   jobs,
@@ -64,19 +71,16 @@ export function JobDeck({
 
   const dx = useSharedValue(0);
   const blur = useSharedValue(0);
-  const enter = useSharedValue(1);
 
   /**
-   * 换卡发生在高斯模糊完全遮住卡面的一帧；这里只做 index 切换与回位。
+   * 换卡发生在高斯模糊完全遮住卡面的一帧：只换 index，并把卡片直接放回正中。
    * 普通函数即可：不进 hook 依赖，避免 react-hooks/immutability 把 shared value 当成不可变参数。
    */
-  function commit(next: number, dir: 1 | -1) {
+  function commit(next: number) {
     setIndex(next);
-    dx.value = dir * 30;
-    enter.value = 0.96;
-    dx.value = active ? withSpring(0, { damping: 24, stiffness: 230 }) : 0;
-    enter.value = active ? withSpring(1, { damping: 22, stiffness: 220 }) : 1;
-    blur.value = withTiming(0, { duration: active ? 210 : 0 });
+    dx.value = 0;
+    // 换字后先保持一帧满模糊，再显影：避免 Android 磨砂回退层在新旧卡片交界处闪字。
+    blur.value = active ? withDelay(70, withTiming(0, { duration: 210 })) : 0;
     setSwapping(false);
   }
 
@@ -93,16 +97,21 @@ export function JobDeck({
     haptics.light();
     setSwapping(true);
     if (!active) {
-      commit(next, dir);
+      setIndex(next);
+      dx.value = 0;
+      blur.value = 0;
+      setSwapping(false);
       return;
     }
-    // 先让高斯模糊升到满，再由 JS 换 index：换字发生在完全模糊的一帧，肉眼看不到重叠
-    blur.value = withTiming(1, { duration: 120 }, (finished) => {
-      if (finished) runOnJS(commit)(next, dir);
+    // 旧卡先滑出；模糊在 150ms 内盖满，换卡时卡面已经不可辨认
+    blur.value = withTiming(1, { duration: 150 });
+    dx.value = withTiming(dir * (cardW + 96), { duration: 200 }, (finished) => {
+      if (finished) runOnJS(commit)(next);
     });
   }
 
   const pan = Gesture.Pan()
+    .enabled(!swapping)
     .activeOffsetX([-12, 12])
     .failOffsetY([-18, 18])
     .onUpdate((event) => {
@@ -125,7 +134,6 @@ export function JobDeck({
       { translateY: interpolate(Math.abs(dx.value), [0, cardW], [0, 8]) },
       { rotate: `${(dx.value / Math.max(1, cardW)) * 5}deg` },
       { rotateX: `${(Math.abs(dx.value) / Math.max(1, cardW)) * -4}deg` },
-      { scale: enter.value },
     ],
   }));
 
@@ -133,40 +141,37 @@ export function JobDeck({
 
   const behind1 = useAnimatedStyle(() => {
     const p = interpolate(Math.abs(dx.value), [0, cardW * 0.6], [0, 1]);
-    return { transform: [{ translateY: 12 - p * 8 }, { scale: 0.95 + p * 0.03 }], opacity: 0.55 + p * 0.3 };
+    return { transform: [{ translateY: 12 - p * 8 }, { scale: 0.95 + p * 0.03 }], opacity: 0.6 + p * 0.3 };
   });
   const behind2 = useAnimatedStyle(() => ({
     transform: [{ translateY: 24 }, { scale: 0.9 }],
-    opacity: 0.32,
+    opacity: 0.36,
   }));
 
   if (!job) return null;
 
-  const salary = job.salaryText || (job.salaryMin && job.salaryMax ? `${job.salaryMin}-${job.salaryMax}K` : "薪资面议");
+  const salary = salaryOf(job);
   const meta = [job.city ? job.city + (job.district ?? "") : null, job.experience, job.education].filter(Boolean);
 
   return (
     <View style={styles.wrap}>
       <View style={[styles.stack, { width: cardW, height: cardH }]}>
         {safeIndex + 2 < jobs.length ? (
-          <Animated.View pointerEvents="none" style={[styles.behind, { width: cardW, height: cardH }, behind2]} />
+          <Animated.View pointerEvents="none" style={[styles.behind, { width: cardW, height: cardH }, behind2]}>
+            <DeckBack job={jobs[safeIndex + 2]} styles={styles} />
+          </Animated.View>
         ) : null}
         {safeIndex + 1 < jobs.length ? (
-          <Animated.View pointerEvents="none" style={[styles.behind, { width: cardW, height: cardH }, behind1]} />
+          <Animated.View pointerEvents="none" style={[styles.behind, { width: cardW, height: cardH }, behind1]}>
+            <DeckBack job={jobs[safeIndex + 1]} styles={styles} />
+          </Animated.View>
         ) : null}
 
         <GestureDetector gesture={pan}>
           <Animated.View style={[styles.card, { width: cardW, height: cardH }, cardStyle]}>
-            {Platform.OS !== "android" || blurTarget ? (
-              <BlurView
-                intensity={30}
-                tint={dark ? "dark" : "light"}
-                blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
-                blurTarget={blurTarget ?? undefined}
-                style={StyleSheet.absoluteFill}
-              />
-            ) : null}
-            <View pointerEvents="none" style={styles.cardTint} />
+            {/* 卡面材质：整块不透明底 + 极淡色温，不再让屏幕背景从卡片边缘透出来 */}
+            <View pointerEvents="none" style={styles.cardGlow} />
+            <View pointerEvents="none" style={styles.cardOrbit} />
 
             <View style={styles.topRow}>
               <View style={styles.avatar}>
@@ -217,12 +222,12 @@ export function JobDeck({
               ))}
             </View>
 
+            {/* 信息区不再套一块 surfaceMuted 的白矩形，改成同卡材质 + 细分割线 */}
             <View style={styles.infoBlock}>
               <InfoRow label="工作城市" value={(job.city ?? "") + (job.district ?? "") || "不限"} />
               <InfoRow label="经验要求" value={job.experience || "不限"} />
               <InfoRow label="学历要求" value={job.education || "不限"} />
               <InfoRow label="信息来源" value={sourceLabel(job.source)} />
-              <InfoRow label="更新时间" value={shortDate(job.publishedAt ?? job.fetchedAt)} />
             </View>
 
             <View style={styles.spacer} />
@@ -255,11 +260,11 @@ export function JobDeck({
               <Text style={styles.applyText}>{applyingId === job.id ? "投递中…" : "一键投递"}</Text>
             </Pressable>
 
-            {/* 高斯模糊过渡层：只盖卡片内容，不拦截手势 */}
+            {/* 高斯模糊过渡层：换卡时盖满整卡，文字永远在完全模糊的一帧切换 */}
             <Animated.View pointerEvents="none" style={[styles.blurLayer, blurStyle]}>
               {Platform.OS !== "android" || blurTarget ? (
                 <BlurView
-                  intensity={34}
+                  intensity={44}
                   tint={dark ? "dark" : "light"}
                   blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
                   blurTarget={blurTarget ?? undefined}
@@ -268,7 +273,7 @@ export function JobDeck({
               ) : (
                 <View style={[StyleSheet.absoluteFill, styles.blurFallback]} />
               )}
-              <View style={styles.blurTint} />
+              <View style={styles.blurVeil} />
             </Animated.View>
           </Animated.View>
         </GestureDetector>
@@ -278,6 +283,7 @@ export function JobDeck({
         <Pressable
           onPress={() => go(-1)}
           disabled={safeIndex === 0}
+          hitSlop={8}
           style={[styles.arrow, safeIndex === 0 && styles.arrowOff]}
           accessibilityRole="button"
           accessibilityLabel="上一张岗位卡"
@@ -287,6 +293,7 @@ export function JobDeck({
         <Pressable
           onPress={() => go(1)}
           disabled={safeIndex >= jobs.length - 1}
+          hitSlop={8}
           style={[styles.arrow, safeIndex >= jobs.length - 1 && styles.arrowOff]}
           accessibilityRole="button"
           accessibilityLabel="下一张岗位卡"
@@ -295,6 +302,25 @@ export function JobDeck({
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function DeckBack({ job, styles }: { job: JobPostingListItem; styles: ReturnType<typeof makeStyles> }) {
+  return (
+    <>
+      <View style={styles.behindTop}>
+        <View style={styles.behindAvatar}>
+          <Text style={styles.behindAvatarText}>{job.company.slice(0, 1)}</Text>
+        </View>
+        <Text style={styles.behindCompany} numberOfLines={1}>
+          {job.company}
+        </Text>
+      </View>
+      <Text style={styles.behindTitle} numberOfLines={2}>
+        {job.title}
+      </Text>
+      <Text style={styles.behindSalary}>{salaryOf(job)}</Text>
+    </>
   );
 }
 
@@ -313,12 +339,6 @@ const SOURCE_LABELS: Record<string, string> = {
 
 function sourceLabel(source: string) {
   return SOURCE_LABELS[source] ?? source;
-}
-
-function shortDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${d.getMonth() + 1} 月 ${d.getDate()} 日`;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -341,20 +361,58 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     behind: {
       position: "absolute",
       borderRadius: radius.panel,
-      backgroundColor: colors.surfaceStrong,
+      backgroundColor: colors.surface,
       borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
+      padding: 20,
+      gap: 6,
+      overflow: "hidden",
     },
+    behindTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+    behindAvatar: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    behindAvatarText: { fontSize: 15, fontWeight: "800", color: colors.primary },
+    behindCompany: { ...typography.caption, fontWeight: "700", color: colors.textMuted, flex: 1 },
+    behindTitle: { ...typography.title2, fontWeight: "800", color: colors.textSecondary, marginTop: 6 },
+    behindSalary: { ...typography.callout, fontWeight: "800", color: colors.primary, marginTop: 4 },
     card: {
       position: "absolute",
       borderRadius: radius.panel,
       overflow: "hidden",
       borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.9)",
-      backgroundColor: "transparent",
+      borderColor: dark ? "rgba(255,255,255,0.14)" : "rgba(15,37,48,0.10)",
+      backgroundColor: colors.surfaceStrong,
       ...shadows.floating,
     },
-    cardTint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: dark ? "rgba(18,27,33,0.62)" : "rgba(255,255,255,0.62)" },
+    /**
+     * 卡面色温：必须整卡铺满。
+     * 只铺上半卡会让下半张露出 surfaceStrong 的纯白，形成一块“中间白矩形”，
+     * 所以这里用全高、极低透明度的主色 wash，让标题、信息行和投递区落在同一材质上。
+     */
+    cardGlow: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: dark ? "rgba(47,116,192,0.075)" : "rgba(47,116,192,0.035)",
+    },
+    cardOrbit: {
+      position: "absolute",
+      top: -92,
+      right: -74,
+      width: 190,
+      height: 190,
+      borderRadius: 95,
+      borderWidth: 26,
+      borderColor: dark ? "rgba(255,255,255,0.035)" : "rgba(47,116,192,0.055)",
+    },
     topRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.sm },
     avatar: {
       width: 44,
@@ -378,18 +436,18 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, maxWidth: "48%" },
     chipText: { ...typography.micro, fontWeight: "600", color: colors.textSecondary },
     spacer: { flex: 1 },
+    /** 信息区：同卡材质 + 顶部细线，没有独立底色 */
     infoBlock: {
       marginTop: spacing.md,
       marginHorizontal: spacing.lg,
-      paddingHorizontal: spacing.md,
-      paddingVertical: 6,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceMuted,
+      paddingTop: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
     },
-    infoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md, minHeight: 26 },
+    infoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md, minHeight: 25 },
     infoLabel: { ...typography.meta, color: colors.textMuted },
     infoValue: { ...typography.caption, fontWeight: "700", color: colors.text, flexShrink: 1, textAlign: "right" },
-    detailLink: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: spacing.lg, paddingVertical: 6 },
+    detailLink: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: spacing.lg, paddingVertical: 4 },
     detailText: { ...typography.caption, fontWeight: "600", color: colors.primary },
     applyBtn: {
       margin: spacing.lg,
@@ -405,8 +463,17 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     applyPressed: { opacity: 0.86 },
     applyText: { ...typography.callout, fontWeight: "700", color: colors.canvas },
     blurLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    blurFallback: { backgroundColor: colors.surfaceStrong },
-    blurTint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: dark ? "rgba(14,21,26,0.16)" : "rgba(255,255,255,0.14)" },
+    /** Android 没有可用的 blurTarget：用半透明同色磨砂代替纯白实底，避免闪白 */
+    blurFallback: { backgroundColor: colors.surfaceStrong, opacity: 0.42 },
+    blurVeil: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.surfaceStrong,
+      opacity: 0.26,
+    },
     controls: { flexDirection: "row", alignItems: "center", gap: 40 },
     arrow: {
       width: 48,

@@ -1,19 +1,19 @@
 {
   "totals": {
-    "animationSites": 294,
+    "animationSites": 297,
     "animatedStyleFiles": 43,
     "repeatFiles": 8,
     "filesWithAnimations": 45
   },
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
-    "apps/mobile/src/app/exam-408-drill.tsx": 6,
+    "apps/mobile/src/app/exam-408-drill.tsx": 8,
     "apps/mobile/src/app/sports-card.tsx": 3,
     "apps/mobile/src/components/achievement-card.tsx": 4,
     "apps/mobile/src/components/animated-number.tsx": 3,
     "apps/mobile/src/components/award-card-3d.tsx": 6,
     "apps/mobile/src/components/bottom-sheet.tsx": 15,
-    "apps/mobile/src/components/career/job-deck.tsx": 9,
+    "apps/mobile/src/components/career/job-deck.tsx": 10,
     "apps/mobile/src/components/celebration-burst.tsx": 3,
     "apps/mobile/src/components/celebration-modal.tsx": 5,
     "apps/mobile/src/components/celebration.tsx": 3,

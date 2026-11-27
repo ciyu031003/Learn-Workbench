@@ -21,6 +21,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withTiming,
 } from "react-native-reanimated";
 import { useBlurTarget } from "@/components/blur-target";
@@ -129,7 +130,6 @@ const FAIL_Y = 14;
 const SLIDE_OUT = 460;
 /** 左右滑切换卡片时：旧卡滑出距离 / 新卡滑入的起始偏移 */
 const SWITCH_OUT = 320;
-const SWITCH_IN = 26;
 
 export default function Exam408DrillScreen() {
   const { colors, dark } = useTheme();
@@ -228,6 +228,8 @@ export default function Exam408DrillScreen() {
   /* ---------------- 动画共享值（必须声明在 worklet 之前） ---------------- */
   const flip = useSharedValue(0);
   const panX = useSharedValue(0);
+  /** 换卡遮罩：只在「旧卡已滑出」到「新卡落位」之间为 1，避免新旧文字交叉 */
+  const swapBlur = useSharedValue(0);
   /** 滑出进度：1=在屏内，0=完全滑出（位移与透明度都由它插值，省一个动画点） */
   const cardSlide = useSharedValue(1);
   /** 滑出方向（-1 左 / 0 原位 / 1 右），直接写值不产生动画点 */
@@ -245,6 +247,13 @@ export default function Exam408DrillScreen() {
     haptics.soft();
     setFlipped((prev) => !prev);
   }, [busy]);
+
+  /** 模糊退场：新卡已经在遮罩下渲染完成，这时才慢慢显影 */
+  const fadeSwapBlur = useCallback(() => {
+    // 先保持整卡模糊 70ms：等 React 把新卡 index 提交到原生层，再从模糊里显影。
+    // 若和 setIndex 同一帧立刻降透明度，Android 磨砂回退层会透出下一张的文字，形成闪字。
+    swapBlur.value = withDelay(70, withTiming(0, { duration: 200 }));
+  }, [swapBlur]);
 
   /* ---------------- 手势：轻点翻面 / 左右滑切换卡片 ---------------- */
   /**
@@ -299,14 +308,16 @@ export default function Exam408DrillScreen() {
         return;
       }
       pendingSwitch.value = target;
-      panX.value = withTiming(-delta * SWITCH_OUT, { duration: 150 }, (done) => {
+      panX.value = withTiming(-delta * SWITCH_OUT, { duration: 170 }, (done) => {
         if (!done) return;
         pendingSwitch.value = -1;
-        // 新卡从反侧轻微滑入；同时立即回到题干面
-        panX.value = delta * SWITCH_IN;
+        // 旧卡已经滑出画面：此刻把模糊拉满，卡片直接回正中；
+        // 换字发生在完全不可辨认的一帧，新卡再从模糊里显影，不会闪。
+        swapBlur.value = 1;
+        panX.value = 0;
         flip.value = 0;
         runOnJS(switchCard)(target);
-        panX.value = withTiming(0, { duration: 170 });
+        runOnJS(fadeSwapBlur)();
       });
     });
 
@@ -330,10 +341,8 @@ export default function Exam408DrillScreen() {
       { rotateY: interpolate(flip.value, [0, 1], [180, 360]) + "deg" },
     ],
   }));
-  // Gaussian blur transition driven by panX; no extra animation sites.
-  const blurStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(Math.abs(panX.value), [0, SWITCH_OUT * 0.32], [0, 1], "clamp"),
-  }));
+  // 换卡遮罩只跟 swapBlur 走；拖动本身不产生模糊，避免手势过程中整卡忽明忽暗。
+  const blurStyle = useAnimatedStyle(() => ({ opacity: swapBlur.value }));
   /** 评级后整张卡滑出（左滑/淡出/右滑），动画结束再切下一张 */
   const cardSlideStyle = useAnimatedStyle(() => ({
     opacity: cardSlide.value,
@@ -632,9 +641,10 @@ export default function Exam408DrillScreen() {
       flip.value = 0;
       cardSlide.value = 1;
       cardDir.value = 1;
+      fadeSwapBlur();
       setBusy(false);
     },
-    [flip, cardSlide, cardDir],
+    [flip, cardSlide, cardDir, fadeSwapBlur],
   );
 
   const rate = async (rating: Exam408CardRating) => {
@@ -664,9 +674,11 @@ export default function Exam408DrillScreen() {
     }
     cardDir.value = direction;
     cardSlide.value = withTiming(0, { duration: 220 }, (done) => {
-      // 动画回调在 UI 线程：不复位共享值（否则旧卡会闪现一帧），只转发切卡；
-      // 复位由 finishRatedCard 在 JS 侧与新卡状态同一 tick 完成。
-      if (done) runOnJS(finishRatedCard)(targetIndex, cards.length, scope);
+      // 卡片已完整滑出：先拉满模糊，再让 JS 换 index；新卡落位后再显影
+      if (done) {
+        swapBlur.value = 1;
+        runOnJS(finishRatedCard)(targetIndex, cards.length, scope);
+      }
     });
 
     const clientId = makeClientId();
@@ -1009,9 +1021,12 @@ export default function Exam408DrillScreen() {
               <Animated.View style={[styles.card, cardSlideStyle]}>
                 {/* 正面：题干（整面可点 → 显示答案） */}
                 <Animated.View
-                  style={[styles.face, frontStyle]}
+                  style={[styles.face, styles.faceFront, frontStyle]}
                   pointerEvents={flipped ? "none" : "auto"}
                 >
+                  <View pointerEvents="none" style={styles.frontGlow} />
+                  <View pointerEvents="none" style={styles.frontRing} />
+                  <View pointerEvents="none" style={styles.frontBottomGlow} />
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={"显示答案：" + toPlainText(card.question)}
@@ -1049,7 +1064,7 @@ export default function Exam408DrillScreen() {
                       </View>
                       <RichText text={card.question} style={styles.questionText} />
                       <View style={styles.faceHintRow}>
-                        <ThemedIcon name="eye-outline" size={15} color={colors.primary} />
+                        <ThemedIcon name="eye-outline" size={15} color="#9FD2F4" />
                         <Text style={[styles.faceHint, styles.faceHintActive]}>
                           {flipActionLabel(flipped)} · 左右滑切换卡片
                         </Text>
@@ -1063,6 +1078,7 @@ export default function Exam408DrillScreen() {
                   style={[styles.face, styles.faceBack, backStyle]}
                   pointerEvents={flipped ? "auto" : "none"}
                 >
+                  <View pointerEvents="none" style={styles.backWash} />
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="隐藏答案，回到题干"
@@ -1117,7 +1133,7 @@ export default function Exam408DrillScreen() {
                       {card.demoKey ? (
                         <Text style={styles.demoHint}>关联演示：{card.demoKey}</Text>
                       ) : null}
-                      <Text style={styles.faceHint}>轻点收起答案 · 左右滑切换卡片</Text>
+                      <Text style={styles.faceHintBack}>轻点收起答案 · 左右滑切换卡片</Text>
                     </ScrollView>
                   </Pressable>
 
@@ -1138,15 +1154,27 @@ export default function Exam408DrillScreen() {
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.blurLayer, blurStyle]}>
                   {Platform.OS !== "android" || blurTarget ? (
                     <BlurView
-                      intensity={28}
+                      intensity={40}
                       tint={dark ? "dark" : "light"}
                       blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
                       blurTarget={blurTarget ?? undefined}
                       style={StyleSheet.absoluteFill}
                     />
                   ) : (
-                    <View style={[StyleSheet.absoluteFill, styles.blurFallback]} />
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.blurFallback,
+                        { backgroundColor: flipped ? colors.surfaceStrong : "#17364E" },
+                      ]}
+                    />
                   )}
+                  <View
+                    style={[
+                      styles.blurVeil,
+                      { backgroundColor: flipped ? colors.surfaceStrong : "#17364E" },
+                    ]}
+                  />
                 </Animated.View>
               </Animated.View>
             </GestureDetector>
@@ -1457,7 +1485,15 @@ const makeStyles = (colors: ThemeColors) =>
     stackBackNear: { left: 12, right: 12, top: 8, bottom: -8, opacity: 0.72 },
     stackBackFar: { left: 24, right: 24, top: 16, bottom: -16, opacity: 0.38 },
     blurLayer: { borderRadius: radius.panel, overflow: "hidden" },
-    blurFallback: { backgroundColor: colors.surfaceStrong },
+    blurFallback: { opacity: 0.45 },
+    blurVeil: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      opacity: 0.28,
+    },
     card: {
       flex: 1,
       borderRadius: radius.panel,
@@ -1467,8 +1503,52 @@ const makeStyles = (colors: ThemeColors) =>
       ...shadows.floating,
       overflow: "hidden",
     },
-    face: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    faceBack: { backgroundColor: colors.primarySoft },
+    face: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" },
+    /** 正面：整块深海军蓝，边缘与内容同材质（对齐 V12 .memory-front） */
+    faceFront: { backgroundColor: "#17364E" },
+    frontGlow: {
+      position: "absolute",
+      top: -96,
+      right: -70,
+      width: 240,
+      height: 240,
+      borderRadius: 120,
+      backgroundColor: "rgba(114,185,239,0.18)",
+    },
+    frontRing: {
+      position: "absolute",
+      top: -128,
+      right: -112,
+      width: 270,
+      height: 270,
+      borderRadius: 135,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.10)",
+    },
+    frontBottomGlow: {
+      position: "absolute",
+      bottom: -82,
+      left: -56,
+      width: 190,
+      height: 190,
+      borderRadius: 95,
+      backgroundColor: "rgba(244,175,117,0.10)",
+    },
+    /** 背面：整卡浅色玻璃，浅色主题用 surfaceStrong 打底 + 主色 6% wash */
+    faceBack: { backgroundColor: colors.surfaceStrong },
+    /**
+     * 答案面同样不能只在上半张铺色：旧实现 height: 58% 会在卡面中间留下
+     * 一条材质分界，看起来像文字区贴了一块白矩形。现在改为全卡同材质 wash。
+     */
+    backWash: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.primarySoft,
+      opacity: 0.32,
+    },
     facePress: { flex: 1 },
     faceScroll: { flex: 1 },
     faceContent: { padding: spacing.lg, gap: spacing.sm },
@@ -1477,32 +1557,34 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.pill,
       paddingHorizontal: 8,
       paddingVertical: 3,
-      backgroundColor: colors.surfaceMuted,
+      backgroundColor: "rgba(255,255,255,0.12)",
     },
-    chapterBadgeText: { ...typography.micro, color: colors.textSecondary },
+    chapterBadgeText: { ...typography.micro, color: "rgba(255,255,255,0.76)" },
     starBadge: {
       borderRadius: radius.pill,
       paddingHorizontal: 8,
       paddingVertical: 3,
-      backgroundColor: colors.accentSoft,
+      backgroundColor: "rgba(244,175,117,0.16)",
     },
-    starBadgeText: { ...typography.micro, color: colors.accentStrong },
+    starBadgeText: { ...typography.micro, color: "#F7C9A0" },
     stateBadge: {
       borderRadius: radius.pill,
       paddingHorizontal: 8,
       paddingVertical: 3,
-      backgroundColor: colors.primarySoft,
+      backgroundColor: "rgba(114,185,239,0.18)",
     },
-    stateBadgeText: { ...typography.micro, color: colors.primary },
+    stateBadgeText: { ...typography.micro, color: "#CFE8FA" },
     questionText: {
       ...typography.title2,
-      color: colors.text,
+      color: "#F4F9FC",
       lineHeight: 32,
       marginTop: spacing.sm,
     },
     faceHintRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: "auto" },
-    faceHint: { ...typography.micro, color: colors.textFaint },
-    faceHintActive: { color: colors.primary, fontWeight: "700" },
+    faceHint: { ...typography.micro, color: "rgba(255,255,255,0.46)" },
+    faceHintActive: { color: "#9FD2F4", fontWeight: "700" },
+    /** 答案面是浅色材质，提示字必须回到主题 token，不能沿用正面的白字 */
+    faceHintBack: { ...typography.micro, color: colors.textFaint },
 
     /* 答案面 */
     answerHeadRow: {
