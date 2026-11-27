@@ -242,7 +242,7 @@ export default function HealthBaselineScreen() {
 
           <View style={[styles.insightLinkRow, { borderTopColor: p.line }]}>
             <Text style={[styles.hintText, { color: p.sub }]}>评分权重：时长 30 · 效率 20 · 分期 15 · 规律 15 · 睡眠债 10 · 夜醒 10；缺项自动重分配。</Text>
-            <Pressable onPress={() => router.push("/sleep" as never)} hitSlop={8} accessibilityRole="button" accessibilityLabel="查看睡眠分析">
+            <Pressable onPress={() => router.push("/sleep" as never)} hitSlop={10} accessibilityRole="button" accessibilityLabel="查看睡眠分析" style={styles.inlineLink}>
               <Text style={[styles.editLinkText, { color: p.orange }]}>睡眠分析 ›</Text>
             </Pressable>
           </View>
@@ -278,7 +278,7 @@ export default function HealthBaselineScreen() {
             <Text style={[styles.hintText, { color: p.sub, flex: 1 }]}>
               提醒由本机调度，未来 7 天有效；每次打开页面会自动续期。静默时段 {profile.reminderPrefs.quietStart ?? "22:30"}–{profile.reminderPrefs.quietEnd ?? "07:00"}。
             </Text>
-            <Pressable onPress={() => void model.sendTestReminder()} hitSlop={8} accessibilityRole="button" accessibilityLabel="发送测试提醒">
+            <Pressable onPress={() => void model.sendTestReminder()} hitSlop={8} accessibilityRole="button" accessibilityLabel="发送测试提醒" style={styles.testButton}>
               <Text style={[styles.editLinkText, { color: p.blue }]}>测试提醒</Text>
             </Pressable>
           </View>
@@ -653,6 +653,8 @@ const makeStyles = (p: V15Palette) =>
     hintText: { ...typography.micro, lineHeight: 17, flex: 1 },
     editLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTopWidth: 1 },
     editLinkText: { ...typography.caption, fontWeight: "700" },
+    inlineLink: { alignSelf: "flex-start", paddingVertical: 7, paddingHorizontal: 4 },
+    testButton: { minHeight: 34, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, justifyContent: "center" },
     baselineTop: { flexDirection: "row", alignItems: "center", gap: 10 },
     cardKicker: { ...typography.micro, fontWeight: "600" },
     cardTitle: { ...typography.headline, fontWeight: "800", marginTop: 2 },
