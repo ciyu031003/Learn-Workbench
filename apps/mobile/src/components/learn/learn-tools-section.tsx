@@ -1,6 +1,8 @@
 import { router } from "expo-router";
-import { Text } from "react-native";
+import { Text, View } from "react-native";
 
+import { Icon } from "@/components/ui/icon";
+import { PressableScale } from "@/components/pressable-scale";
 import { SectionTitle } from "@/components/v2/section-title";
 import { useTheme } from "@/theme";
 
@@ -9,15 +11,11 @@ import { LearnToolsGrid, type LearnToolItem, type LearnToolTuple } from "./learn
 import { makeStyles } from "./learn-styles";
 
 /**
- * ⑤ 学习工具区块：2×3 六张行式卡（复习与错题 / 技术题库 / 408 专区 / 学习统计 / 阶段路线 / 材料阅读）。
- *
- * 数字全部来自既有真实数据：
- * - 复习：reviewStats.due / wrong（remoteOk=false 表示离线拿不到排期 → 写「到期需联网」而不是 0）
- * - 题库：questionCount + 今日作答数（learningSummary.today）+ 每日目标
- * - 408：exam408ChapterCount 章 / exam408PointCount 知识点（来自内容库 ex-408-grad）
- * - 统计：practiceAccuracy + 累计作答（learningSummary.attempted）
- * - 阶段路线：当前阶段周数 + 主题数（cabin）
- * - 材料阅读：长文精读入口（题库材料）
+ * ⑤ 学习工具区块（对齐 V12）：
+ * - 顶部一条「今天先做」主线，只放当前最该点的动作；
+ * - 下面 2×3 竖式大卡（复习与错题 / 技术题库 / 408 专区 / 学习统计 / 阶段路线 / 材料阅读）；
+ * - 每张卡的主数字都来自真实数据，卡底细条表示真实进度；
+ * - 不写解释性长文案，工具卡自己说明下一步。
  */
 export function LearnToolsSection({
   reviewStats,
@@ -28,6 +26,7 @@ export function LearnToolsSection({
   practiceAccuracy,
   phaseWeeks,
   topicCount,
+  phasePercent,
 }: {
   reviewStats: { due: number; wrong: number; total: number; mastered: number; remoteOk: boolean } | null;
   learningSummary: { today: number; attempted: number; correct: number; wrong: number };
@@ -37,23 +36,41 @@ export function LearnToolsSection({
   practiceAccuracy: number | null;
   phaseWeeks: string;
   topicCount: number;
+  phasePercent: number;
 }): React.JSX.Element {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
 
-  const reviewMeta = !reviewStats
-    ? "登录后看记忆曲线排期"
-    : reviewStats.remoteOk
-      ? "到期 " + reviewStats.due + " · 错题 " + reviewStats.wrong
-      : "到期需联网 · 错题 " + reviewStats.wrong;
+  const goReview = () => router.push("/quiz/review" as never);
+  const goBank = () => router.push("/quiz" as never);
+  const go408 = () => router.push("/exam-408" as never);
+
+  const goalLeft = Math.max(0, DAILY_QUESTION_GOAL - learningSummary.today);
+  const focus =
+    reviewStats?.remoteOk && reviewStats.due > 0
+      ? { icon: "alarm" as const, title: "先清 " + reviewStats.due + " 道到期复习", meta: "按记忆曲线排期 · 错题 " + reviewStats.wrong, cta: "去复习", onPress: goReview }
+      : goalLeft > 0
+        ? { icon: "target" as const, title: "今天还差 " + goalLeft + " 题", meta: "已完成 " + learningSummary.today + " / " + DAILY_QUESTION_GOAL, cta: "去刷题", onPress: goBank }
+        : { icon: "flag" as const, title: "今日题量已完成", meta: "再读一章或刷一组 408 卡", cta: "去 408", onPress: go408 };
+
+  const reviewProgress =
+    reviewStats && reviewStats.total > 0 ? reviewStats.mastered / reviewStats.total : undefined;
+  const bankProgress = Math.min(1, learningSummary.today / DAILY_QUESTION_GOAL);
 
   const reviewItem: LearnToolItem = {
     key: "review",
     icon: "alarm",
     title: "复习与错题",
-    meta: reviewMeta,
+    value: reviewStats ? String(reviewStats.due) : "—",
+    unit: "题",
+    meta: !reviewStats
+      ? "登录后看排期"
+      : reviewStats.remoteOk
+        ? "错题 " + reviewStats.wrong + " · 掌握 " + reviewStats.mastered + "/" + reviewStats.total
+        : "离线 · 错题 " + reviewStats.wrong,
     tone: "primary",
-    onPress: () => router.push("/quiz/review" as never),
+    progress: reviewProgress,
+    onPress: goReview,
     accessibilityLabel:
       reviewStats && reviewStats.remoteOk
         ? "打开复习与错题，已到期 " + reviewStats.due + " 个知识点，错题 " + reviewStats.wrong + " 道"
@@ -64,9 +81,12 @@ export function LearnToolsSection({
     key: "bank",
     icon: "list",
     title: "技术题库",
-    meta: questionCount > 0 ? questionCount + " 题 · 今日 " + learningSummary.today + "/" + DAILY_QUESTION_GOAL : "还没有题库内容",
+    value: questionCount > 0 ? String(questionCount) : "—",
+    unit: "题",
+    meta: questionCount > 0 ? "今日 " + learningSummary.today + "/" + DAILY_QUESTION_GOAL : "还没有题库内容",
     tone: "success",
-    onPress: () => router.push("/quiz" as never),
+    progress: bankProgress,
+    onPress: goBank,
     accessibilityLabel: "打开技术题库，共 " + questionCount + " 题，今日已做 " + learningSummary.today + " 题",
   };
 
@@ -74,9 +94,11 @@ export function LearnToolsSection({
     key: "exam408",
     icon: "flag",
     title: "408 专区",
-    meta: exam408ChapterCount > 0 ? exam408ChapterCount + " 章 · " + exam408PointCount + " 知识点" : "精读 / 演示 / 刷卡",
+    value: exam408ChapterCount > 0 ? String(exam408ChapterCount) : "—",
+    unit: "章",
+    meta: exam408PointCount > 0 ? exam408PointCount + " 个知识点" : "精读 · 刷卡",
     tone: "accent",
-    onPress: () => router.push("/exam-408" as never),
+    onPress: go408,
     accessibilityLabel: "打开 408 考研专区，" + exam408ChapterCount + " 章 " + exam408PointCount + " 个知识点",
   };
 
@@ -84,8 +106,11 @@ export function LearnToolsSection({
     key: "stats",
     icon: "trend",
     title: "学习统计",
-    meta: practiceAccuracy === null ? "累计 " + learningSummary.attempted + " 题 · 还没有正确率" : "正确率 " + practiceAccuracy + "% · 累计 " + learningSummary.attempted + " 题",
+    value: practiceAccuracy === null ? "—" : String(practiceAccuracy),
+    unit: practiceAccuracy === null ? undefined : "%",
+    meta: "累计 " + learningSummary.attempted + " 题 · 对 " + learningSummary.correct,
     tone: "lavender",
+    progress: practiceAccuracy === null ? undefined : practiceAccuracy / 100,
     onPress: () => router.push("/study-stats" as never),
     accessibilityLabel:
       practiceAccuracy === null
@@ -97,8 +122,11 @@ export function LearnToolsSection({
     key: "roadmap",
     icon: "folder",
     title: "阶段路线",
-    meta: phaseWeeks + " · " + topicCount + " 主题",
+    value: String(topicCount),
+    unit: "主题",
+    meta: phaseWeeks,
     tone: "teal",
+    progress: phasePercent / 100,
     onPress: () => router.push("/roadmap" as never),
     accessibilityLabel: "打开阶段路线，" + topicCount + " 个主题",
   };
@@ -107,7 +135,8 @@ export function LearnToolsSection({
     key: "reading",
     icon: "reading",
     title: "材料阅读",
-    meta: "长文精读 · 题组 · 术语表",
+    value: "精读",
+    meta: "长文 · 题组 · 术语表",
     tone: "primary",
     onPress: () => router.push("/quiz/read" as never),
     accessibilityLabel: "打开材料阅读",
@@ -119,9 +148,32 @@ export function LearnToolsSection({
     <>
       <SectionTitle
         title="学习工具"
-        right={<Text style={styles.sectionMeta}>2×3 · 今天先做哪一个</Text>}
+        right={<Text style={styles.sectionMeta}>6 个入口</Text>}
         style={styles.sectionTitle}
       />
+
+      <PressableScale
+        haptic
+        scaleTo={0.985}
+        hitSlop={4}
+        onPress={focus.onPress}
+        style={styles.focusBar}
+        accessibilityRole="button"
+        accessibilityLabel={focus.title + "，" + focus.cta}
+      >
+        <View style={styles.focusIcon}>
+          <Icon name={focus.icon} size={19} weight="duotone" color={colors.primary} />
+        </View>
+        <View style={styles.focusBody}>
+          <Text style={styles.focusTitle} numberOfLines={1}>{focus.title}</Text>
+          <Text style={styles.focusMeta} numberOfLines={1}>{focus.meta}</Text>
+        </View>
+        <View style={styles.focusCta}>
+          <Text style={styles.focusCtaText}>{focus.cta}</Text>
+          <Icon name="chevron" size={12} weight="bold" color="#FFFFFF" />
+        </View>
+      </PressableScale>
+
       <LearnToolsGrid items={items} />
     </>
   );

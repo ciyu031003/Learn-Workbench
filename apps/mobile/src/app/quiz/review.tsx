@@ -16,6 +16,8 @@ import {
   applyLearningReviewAction,
   fetchLearningReview,
   flushLearningReviewActions,
+  reviewMasteryLabel,
+  reviewMasteryLevel,
 } from "@/lib/learning-review";
 import {
   loadLearningAttempts,
@@ -95,6 +97,8 @@ export default function QuizReviewScreen() {
   }, [review, contentTracks]);
   const localWrong = useMemo(() => wrongQuestionKeys(attempts), [attempts]);
   const localQueues = useMemo(() => groupByTrack(localWrong, attempts), [localWrong, attempts]);
+  const masteryPercent =
+    review && review.totalCount > 0 ? Math.round((review.masteredCount / review.totalCount) * 100) : 0;
 
   const startReview = (trackSlug: string, mode: "due" | "wrong") => {
     // 目标参数登记入场外通道（v1.51 防同名路由 params 冻结，见 lib/nav-pending.ts）
@@ -149,10 +153,15 @@ export default function QuizReviewScreen() {
             <SummaryStat styles={styles} value={review ? review.totalCount : attempts.length} label={review ? "累计卡片" : "本地作答"} accent={colors.text} />
             <SummaryStat styles={styles} value={review ? review.masteredCount : 0} label="已掌握" accent={colors.success} />
           </View>
+          <View style={styles.masteryHead}>
+            <Text style={styles.masteryLabel}>掌握度</Text>
+            <Text style={styles.masteryValue}>{review ? masteryPercent + "%" : "—"}</Text>
+          </View>
+          <View style={styles.masteryTrack}>
+            <View style={[styles.masteryFill, { width: `${masteryPercent}%` as `${number}%` }]} />
+          </View>
           <Text style={styles.summaryHint}>
-            {review
-              ? "按间隔复习（SM-2）安排：答错即入列，答对逐次拉长间隔，连续掌握后自动移出；可延后、暂停或手动完成。"
-              : "未登录或离线：当前用本机错题兜底；登录后会自动接入服务端间隔复习队列。"}
+            {review ? "到期 " + review.dueCount + " 题 · 已掌握 " + review.masteredCount + " 张" : "登录后同步记忆曲线"}
           </Text>
         </Animated.View>
 
@@ -200,7 +209,7 @@ export default function QuizReviewScreen() {
               styles={styles}
               icon="checkmark-done"
               title="暂时没有到期复习"
-              text={review ? "间隔复习队列是空的，先做一组练习把错题收进来。" : "登录后可接入服务端间隔复习队列。"}
+              text={review ? "到期队列为空，先做一组练习。" : "登录后同步复习排期。"}
             />
           ) : null}
         </View>
@@ -228,7 +237,7 @@ export default function QuizReviewScreen() {
         ) : null}
 
         <Animated.View entering={entrance(4)} style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>本地错题</Text>
+          <Text style={styles.sectionTitle}>错题本</Text>
           <Text style={styles.sectionCount}>{localWrong.length} 题</Text>
         </Animated.View>
 
@@ -250,7 +259,7 @@ export default function QuizReviewScreen() {
               styles={styles}
               icon="sparkles-outline"
               title="没有本机错题"
-              text="继续练习，答错的题目会自动出现在这里。"
+              text="答错的题会自动收进来。"
             />
           ) : null}
         </View>
@@ -340,6 +349,7 @@ function PlanCard({
         : card.status === "learning"
           ? colors.warning
           : colors.primary;
+  const level = reviewMasteryLevel(card);
   return (
     <View style={styles.planCard}>
       <View style={styles.planTop}>
@@ -352,6 +362,19 @@ function PlanCard({
         <View style={[styles.planStatus, { backgroundColor: statusColor + "18" }]}>
           <Text style={[styles.planStatusText, { color: statusColor }]}>{REVIEW_STATUS_LABEL[card.status]}</Text>
         </View>
+      </View>
+      <View style={styles.planMasteryRow}>
+        <View style={styles.planDots}>
+          {Array.from({ length: 5 }).map((_, dotIndex) => (
+            <View
+              key={dotIndex}
+              style={[styles.planDot, dotIndex < level && { backgroundColor: statusColor }]}
+            />
+          ))}
+        </View>
+        <Text style={styles.planMasteryText}>
+          {reviewMasteryLabel(level)} · 间隔 {card.intervalDays} 天
+        </Text>
       </View>
       <View style={styles.planActions}>
         {card.status === "suspended" ? (
@@ -514,6 +537,17 @@ const makeStyles = (colors: ThemeColors) =>
     summaryValue: { ...typography.title1, fontWeight: "900" },
     summaryLabel: { ...typography.caption, color: colors.textMuted },
     summaryHint: { ...typography.caption, color: colors.textSecondary, lineHeight: 19 },
+    masteryHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
+    masteryLabel: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    masteryValue: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    masteryTrack: {
+      height: 5,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surfaceMuted,
+      overflow: "hidden",
+      marginTop: -6,
+    },
+    masteryFill: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.primary },
     sectionHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: spacing.sm },
     sectionTitle: { ...typography.title2, color: colors.text },
     sectionCount: { ...typography.caption, color: colors.textMuted },
@@ -553,6 +587,10 @@ const makeStyles = (colors: ThemeColors) =>
     planMeta: { ...typography.micro, color: colors.textMuted },
     planStatus: { borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
     planStatusText: { ...typography.micro, fontWeight: "800" },
+    planMasteryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+    planDots: { flexDirection: "row", alignItems: "center", gap: 4 },
+    planDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.surfaceMuted },
+    planMasteryText: { ...typography.micro, color: colors.textMuted },
     planActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
     planAction: {
       minHeight: 36,

@@ -1,9 +1,36 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { LearningReviewActionInput, LearningReviewMutationResponse, LearningReviewResponse } from "@learn-workbench/shared/schemas";
+import type { LearningReviewActionInput, LearningReviewCard, LearningReviewMutationResponse, LearningReviewResponse } from "@learn-workbench/shared/schemas";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 
 const ACTION_QUEUE_KEY = "lwb-learning-review-actions-v1";
+
+/** 掌握度 0~5：只用于 UI 表达，不参与排期计算（排期以服务端 SM-2 为准） */
+export type ReviewMasteryLevel = 0 | 1 | 2 | 3 | 4 | 5;
+
+function clampLevel(value: number): ReviewMasteryLevel {
+  return Math.max(0, Math.min(5, Math.round(value))) as ReviewMasteryLevel;
+}
+
+/**
+ * 把服务端卡片映射成 6 档可读的掌握度：
+ * - mastered = 5（稳定掌握）
+ * - suspended 保留已有连续次数，最高 4
+ * - learning 最高 2（刚接触 / 仍模糊）
+ * - review 在连续答对基础上加 1，lapse 过则不加，最高 4
+ */
+export function reviewMasteryLevel(card: Pick<LearningReviewCard, "status" | "streak" | "lapses">): ReviewMasteryLevel {
+  if (card.status === "mastered") return 5;
+  if (card.status === "suspended") return clampLevel(Math.min(4, card.streak));
+  if (card.status === "learning") return clampLevel(Math.min(2, card.streak));
+  return clampLevel(Math.min(4, card.streak + (card.lapses === 0 ? 1 : 0)));
+}
+
+export const REVIEW_MASTERY_LABELS = ["未开始", "初识", "模糊", "巩固", "熟练", "稳定"] as const;
+
+export function reviewMasteryLabel(level: ReviewMasteryLevel): string {
+  return REVIEW_MASTERY_LABELS[level];
+}
 
 export const EMPTY_REVIEW: LearningReviewResponse = {
   cards: [],

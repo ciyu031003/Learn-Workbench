@@ -4,8 +4,8 @@ import { Text, View } from "react-native";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTheme } from "@/theme";
-import { withAlpha } from "@/lib/chart-math";
 import type { ThemeColors } from "@/theme/tokens";
+import { withAlpha } from "@/lib/chart-math";
 
 import { makeStyles } from "./learn-styles";
 
@@ -16,9 +16,15 @@ export interface LearnToolItem {
   key: string;
   icon: IconName;
   title: string;
-  /** 数字小字：真实数据（到期数 / 题数 / 章数 / 正确率），没数据时写「—」或说明 */
+  /** 主数字（对齐 V12 的大字号 value），没有真实数据时用「—」 */
+  value: string;
+  /** 数字后的单位，例如「题 / 章 / %」 */
+  unit?: string;
+  /** 一行真实状态，不写解释性长文案 */
   meta: string;
   tone: LearnToolTone;
+  /** 0~1；有进度语义的卡才传，底部会出现 3pt 细条 */
+  progress?: number;
   onPress: () => void;
   accessibilityLabel: string;
 }
@@ -33,45 +39,58 @@ export type LearnToolTuple = [
   LearnToolItem,
 ];
 
-function toneOf(colors: ThemeColors, tone: LearnToolTone): { fg: string; bg: string } {
-  switch (tone) {
-    case "success":
-      return { fg: colors.success, bg: colors.successSoft };
-    case "accent":
-      return { fg: colors.accent, bg: colors.accentSoft };
-    case "lavender":
-      return { fg: colors.lavender, bg: withAlpha(colors.lavender, 0.14) };
-    case "teal":
-      return { fg: colors.teal, bg: withAlpha(colors.teal, 0.14) };
-    default:
-      return { fg: colors.primary, bg: colors.primarySoft };
-  }
+function toneOf(colors: ThemeColors, tone: LearnToolTone): { fg: string; wash: string } {
+  const fg =
+    tone === "success"
+      ? colors.success
+      : tone === "accent"
+        ? colors.accent
+        : tone === "lavender"
+          ? colors.lavender
+          : tone === "teal"
+            ? colors.teal
+            : colors.primary;
+  return { fg, wash: withAlpha(fg, 0.085) };
 }
 
-/** 卡片内容（34px 圆角底片 + duotone 图标 + 标题 + 数字小字） */
+/**
+ * 单张工具卡（对齐 V12 .tool-card）：
+ * 全卡统一材质 = surface + 色调 wash 铺满整卡，内部不再出现白色小矩形。
+ */
 function ToolCardBody({ item }: { item: LearnToolItem }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const tone = toneOf(colors, item.tone);
+  const progress = item.progress === undefined ? null : Math.max(0, Math.min(1, item.progress));
   return (
     <>
-      <View style={[styles.toolIcon, { backgroundColor: tone.bg }]}>
-        <Icon name={item.icon} size={18} weight="duotone" color={tone.fg} />
+      <View pointerEvents="none" style={[styles.toolWash, { backgroundColor: tone.wash }]} />
+      <View style={styles.toolIcon}>
+        <Icon name={item.icon} size={20} weight="duotone" color={tone.fg} />
       </View>
-      <View style={styles.toolBody}>
-        <Text style={styles.toolTitle} numberOfLines={1}>
-          {item.title}
+      <View style={styles.toolValueRow}>
+        <Text style={styles.toolValue} numberOfLines={1}>
+          {item.value}
         </Text>
-        <Text style={styles.toolMeta} numberOfLines={1}>
-          {item.meta}
-        </Text>
+        {item.unit ? <Text style={styles.toolUnit}>{item.unit}</Text> : null}
       </View>
+      <Text style={styles.toolTitle} numberOfLines={1}>
+        {item.title}
+      </Text>
+      <Text style={styles.toolMeta} numberOfLines={2}>
+        {item.meta}
+      </Text>
+      {progress === null ? null : (
+        <View style={styles.toolTrack}>
+          <View style={[styles.toolFill, { width: `${Math.round(progress * 100)}%` as `${number}%`, backgroundColor: tone.fg }]} />
+        </View>
+      )}
     </>
   );
 }
 
 /**
- * ⑤ 学习工具（对齐 demo .ltools）：2×3 紧凑行式卡，每张 = 圆角底片图标 + 标题 + 数字小字。
+ * ⑤ 学习工具（对齐 demo .tool-grid）：2×3 竖式大卡，每张 = 图标 + 大数字 + 标题 + 一行状态。
  *
  * 六张卡是固定产品集合，所以这里逐张写出（不用 map）：每张都显式带 hitSlop，
  * 门禁的触控热区统计才能逐张覆盖到；文案与跳转全部由 LearnToolsSection 传入。
@@ -86,7 +105,7 @@ export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
       <PressableScale
         haptic
         hitSlop={6}
-        scaleTo={0.97}
+        scaleTo={0.975}
         onPress={review.onPress}
         style={styles.toolCell}
         accessibilityRole="button"
@@ -100,7 +119,7 @@ export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
       <PressableScale
         haptic
         hitSlop={6}
-        scaleTo={0.97}
+        scaleTo={0.975}
         onPress={bank.onPress}
         style={styles.toolCell}
         accessibilityRole="button"
@@ -114,7 +133,7 @@ export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
       <PressableScale
         haptic
         hitSlop={6}
-        scaleTo={0.97}
+        scaleTo={0.975}
         onPress={exam408.onPress}
         style={styles.toolCell}
         accessibilityRole="button"
@@ -128,7 +147,7 @@ export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
       <PressableScale
         haptic
         hitSlop={6}
-        scaleTo={0.97}
+        scaleTo={0.975}
         onPress={stats.onPress}
         style={styles.toolCell}
         accessibilityRole="button"
@@ -142,7 +161,7 @@ export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
       <PressableScale
         haptic
         hitSlop={6}
-        scaleTo={0.97}
+        scaleTo={0.975}
         onPress={roadmap.onPress}
         style={styles.toolCell}
         accessibilityRole="button"
@@ -156,7 +175,7 @@ export function LearnToolsGrid({ items }: { items: LearnToolTuple }) {
       <PressableScale
         haptic
         hitSlop={6}
-        scaleTo={0.97}
+        scaleTo={0.975}
         onPress={reading.onPress}
         style={styles.toolCell}
         accessibilityRole="button"

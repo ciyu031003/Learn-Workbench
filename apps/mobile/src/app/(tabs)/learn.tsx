@@ -27,7 +27,7 @@ import { useLearnScreen } from "@/components/learn/use-learn-screen";
  *   ② 章节树（垂直轨道：当前阶段主题，完成绿 / 在读蓝 + 光晕 / 未开始灰）
  *   ③ 学习节律（近 7 天柱状条 + 星期标签 + 学习成果数字一行）
  *   ④ 学习成就（3 张金属卡横向轨道）
- *   ⑤ 学习工具（2×3 行式卡：复习 / 题库 / 408 / 统计 / 阶段路线 / 材料阅读）
+ *   ⑤ 学习工具（今日主线 + 2×3 竖式大卡：复习 / 题库 / 408 / 统计 / 阶段路线 / 材料阅读）
  *   ⑥ 底部引言
  * 章节管理（新建/编辑/删除阶段 · 新增主题 · 导入 MD）收敛成章节树下的一行管理条，
  * 沿用既有四个弹层；安全区仍由页面模型统一提供（headerTop / tabBarSpace）。
@@ -152,7 +152,7 @@ export default function LearnScreen() {
         />
       </Animated.View>
 
-      {/* ⑤ 学习工具（2×3） */}
+      {/* ⑤ 学习工具（今日主线 + 2×3 大卡） */}
       <Animated.View entering={entrance(4)}>
         <LearnToolsSection
           reviewStats={reviewStats}
@@ -163,6 +163,7 @@ export default function LearnScreen() {
           practiceAccuracy={practiceAccuracy}
           phaseWeeks={cabin.weeksChip}
           topicCount={cabin.ring.total}
+          phasePercent={cabin.ring.percent}
         />
       </Animated.View>
 

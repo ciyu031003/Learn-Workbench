@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyLearningReviewAction, fetchDueReviewKeys, fetchLearningReview } from "./learning-review";
+import { applyLearningReviewAction, fetchDueReviewKeys, fetchLearningReview, reviewMasteryLabel, reviewMasteryLevel } from "./learning-review";
 
 const state = vi.hoisted(() => ({ token: "tok" as string | null }));
 const storage = vi.hoisted(() => ({ value: null as string | null }));
@@ -81,5 +81,27 @@ describe("fetchLearningReview", () => {
     expect(result.queued).toBe(true);
     expect(storage.value).toContain("snooze");
     expect(storage.value).toContain("py-1");
+  });
+});
+
+describe("reviewMasteryLevel", () => {
+  it("marks mastered cards as stable (5)", () => {
+    expect(reviewMasteryLevel({ status: "mastered", streak: 0, lapses: 3 })).toBe(5);
+    expect(reviewMasteryLabel(5)).toBe("稳定");
+  });
+
+  it("caps learning cards at 2 and review cards at 4", () => {
+    expect(reviewMasteryLevel({ status: "learning", streak: 6, lapses: 0 })).toBe(2);
+    expect(reviewMasteryLevel({ status: "review", streak: 9, lapses: 0 })).toBe(4);
+  });
+
+  it("does not award the review bonus after a lapse", () => {
+    expect(reviewMasteryLevel({ status: "review", streak: 1, lapses: 2 })).toBe(1);
+    expect(reviewMasteryLevel({ status: "review", streak: 1, lapses: 0 })).toBe(2);
+  });
+
+  it("keeps suspended cards below mastered", () => {
+    expect(reviewMasteryLevel({ status: "suspended", streak: 5, lapses: 0 })).toBe(4);
+    expect(reviewMasteryLabel(0)).toBe("未开始");
   });
 });
