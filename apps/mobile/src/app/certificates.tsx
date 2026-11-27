@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
-import { radius, typography } from "@/theme/tokens";
+import { radius, shadows, typography } from "@/theme/tokens";
 import {
   RefreshControl,
-  Alert, Pressable, StyleSheet, Text, View } from "react-native";
+  Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { CertCard, CERT_STATUSES, CERT_STATUS_DESC, CERT_STATUS_ICON, certStatusPalette, type CertStatus } from "@/components/cert-card";
+import { CertDetailTile, CertRow, CERT_STATUSES, CERT_STATUS_DESC, CERT_STATUS_ICON, certStatusPalette, type CertStatus } from "@/components/cert-card";
 import { CertImagePreview } from "@/components/cert-image-preview";
 import { FloatField } from "@/components/float-field";
 import { PressButton } from "@/components/press-button";
@@ -27,6 +27,7 @@ import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import type { Certificate } from "@learn-workbench/shared/schemas";
 import { certificateStatusLabels } from "@learn-workbench/shared/labels";
+import { certificateExpiryInfo } from "@learn-workbench/shared/pure";
 import { absoluteMediaUrl, deleteUpload, pickAndUploadPhoto } from "@/lib/uploads";
 import { onUploadResolved } from "@/lib/upload-sync";
 import { isLocalFileUri } from "@/lib/upload-outbox";
@@ -59,6 +60,8 @@ export default function CertificatesScreen() {
   const [localPreview, setLocalPreview] = useState<Record<number, string>>({});
   /** 全屏预览的图片地址与标题（null 表示关闭） */
   const [preview, setPreview] = useState<{ uri: string; title: string } | null>(null);
+  /** 证书详情（V12：列表 → 详情主视觉，不新增独立路由） */
+  const [detailId, setDetailId] = useState<number | null>(null);
 
   /**
    * 图片发件箱回填（组一 · 阶段 1）：离线排队补发成功后，把本机暂存 uri 换成服务端 url。
@@ -295,6 +298,7 @@ export default function CertificatesScreen() {
               setRecords((prev) => prev.filter((x) => x.id !== record.id));
               clearLocalPreview(record.id);
               if (statusSheetFor === record.id) setStatusSheetFor(null);
+              if (detailId === record.id) setDetailId(null);
             }
           } catch (e) {
             Alert.alert("删除失败", friendlyError(e, ""));
@@ -307,6 +311,41 @@ export default function CertificatesScreen() {
   const statusTarget = statusSheetFor === null ? null : records.find((r) => r.id === statusSheetFor) ?? null;
   const statusTargetCurrent = (statusTarget?.status ?? "planned") as CertStatus;
 
+  const resolveCertImage = (record: Certificate): string | null => {
+    const raw = localPreview[record.id] ?? record.imageUrl ?? null;
+    if (!raw) return null;
+    return isLocalFileUri(raw) ? raw : absoluteMediaUrl(raw) ?? raw;
+  };
+
+  /** 30 天内到期 / 已过期：只提示真正需要处理的证书 */
+  const attention = records
+    .map((record) => ({ record, info: certificateExpiryInfo(record.expiryDate ?? null) }))
+    .filter((item) => item.info.level === "soon" || item.info.level === "expired")
+    .sort((a, b) => (a.info.days ?? 0) - (b.info.days ?? 0));
+
+  const groups = [
+    { key: "achieved", title: "已获得", items: records.filter((r) => (r.status ?? "planned") === "achieved") },
+    { key: "preparing", title: "备考中", items: records.filter((r) => (r.status ?? "planned") === "preparing") },
+    { key: "planned", title: "计划中", items: records.filter((r) => (r.status ?? "planned") === "planned") },
+  ] as const;
+
+  const detailRecord = detailId === null ? null : records.find((r) => r.id === detailId) ?? null;
+  const detailImage = detailRecord ? resolveCertImage(detailRecord) : null;
+
+  const shareCertificate = async (record: Certificate) => {
+    const lines = [
+      record.name,
+      record.issuer,
+      record.earnedDate ? "取得 " + record.earnedDate : null,
+      record.expiryDate ? "有效期至 " + record.expiryDate : null,
+    ].filter((line): line is string => Boolean(line));
+    try {
+      await Share.share({ message: lines.join("\n") });
+    } catch {
+      // 用户取消分享不是错误
+    }
+  };
+
   return (
     <View style={styles.root}>
       {/* v17-C2b：紧凑栏必须在滚动容器**之外**才能真吸顶（放在内容流里会跟着一起滚走） */}
@@ -316,53 +355,88 @@ export default function CertificatesScreen() {
         {/* 大标题留在内容里随内容滚走；顶部让位高度由组件自己吃 insets */}
         <ScreenHeaderLargeTitle title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" />
 
-      <PressableScale
-        style={styles.addBtn}
-        haptic
-        hitSlop={8}
-        onPress={() => setSheetOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="添加证书"
-      >
-        <ThemedIcon name="add" size={18} color={colors.surface} />
-        <Text style={styles.addBtnText}>添加证书</Text>
-      </PressableScale>
+      <View style={styles.statsCard}>
+        <View style={styles.statsCopy}>
+          <Text style={styles.statsEyebrow}>CERTIFICATES</Text>
+          <View style={styles.statsRow}>
+            <Text style={styles.statsValue}>{loading ? "—" : records.length}</Text>
+            <Text style={styles.statsUnit}>张证书</Text>
+            <View style={styles.statsDivider} />
+            <View style={styles.statsMini}>
+              <Text style={styles.statsMiniValue}>
+                {loading ? "—" : records.filter((r) => (r.status ?? "planned") === "achieved").length}
+              </Text>
+              <Text style={styles.statsMiniLabel}>已获得</Text>
+            </View>
+            <View style={styles.statsMini}>
+              <Text style={[styles.statsMiniValue, attention.length > 0 && { color: colors.accentStrong }]}>
+                {loading ? "—" : attention.length}
+              </Text>
+              <Text style={styles.statsMiniLabel}>临期</Text>
+            </View>
+          </View>
+        </View>
+        <PressableScale
+          style={styles.addCircle}
+          haptic
+          hitSlop={8}
+          onPress={() => setSheetOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="添加证书"
+        >
+          <ThemedIcon name="add" size={22} color={colors.primary} />
+        </PressableScale>
+      </View>
+
+      {!loading && attention.length > 0 ? (
+        <PressableScale
+          haptic
+          scaleTo={0.985}
+          onPress={() => setDetailId(attention[0].record.id)}
+          style={styles.expiryCallout}
+          accessibilityRole="button"
+          accessibilityLabel={"查看临期证书 " + attention[0].record.name + "，" + attention[0].info.label}
+        >
+          <ThemedIcon name="alert-circle" size={17} color={colors.accentStrong} />
+          <Text style={styles.expiryText} numberOfLines={1}>
+            {attention[0].record.name} · {attention[0].info.label}
+          </Text>
+          <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
+        </PressableScale>
+      ) : null}
 
       {loading ? (
-        <SkeletonList count={4} />
+        <SkeletonList count={3} />
       ) : records.length === 0 ? (
         <EmptyState
           icon="ribbon-outline"
           title="还没有证书"
           hint="先添加一张 CISP / HCIP，简历与职业雷达会自动引用"
-          pattern="bauhaus"
+          pattern="none"
         />
       ) : (
         <>
-          <SectionTitle
-            title="证书清单"
-            style={styles.listTitle}
-            right={<Text style={styles.listCount}>{records.length} 张</Text>}
-          />
-          {records.map((r, index) => {
-            // 本机暂存的图片优先（离线补发期间），其次是服务端 imageUrl（相对路径转绝对）
-            const localUri = localPreview[r.id];
-            const rawImage = localUri ?? r.imageUrl ?? null;
-            const imageUri = rawImage ? (isLocalFileUri(rawImage) ? rawImage : absoluteMediaUrl(rawImage) ?? rawImage) : null;
-            return (
-              <CertCard
-                key={r.id}
-                index={index}
-                record={r}
-                imageUri={imageUri}
-                uploading={uploadingId === r.id}
-                onOpenStatus={() => setStatusSheetFor(r.id)}
-                onUpload={() => void uploadCertificatePhoto(r)}
-                onDelete={() => remove(r)}
-                onPreview={(uri) => setPreview({ uri, title: r.name })}
-              />
-            );
-          })}
+          {groups.map((group) =>
+            group.items.length === 0 ? null : (
+              <View key={group.key} style={styles.group}>
+                <SectionTitle
+                  title={group.title}
+                  style={styles.groupTitle}
+                  right={<Text style={styles.listCount}>{group.items.length} 张</Text>}
+                />
+                <View style={styles.groupCard}>
+                  {group.items.map((record, index) => (
+                    <CertRow
+                      key={record.id}
+                      record={record}
+                      last={index === group.items.length - 1}
+                      onPress={() => setDetailId(record.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            ),
+          )}
         </>
       )}
 
@@ -376,7 +450,23 @@ export default function CertificatesScreen() {
             onChangeText={setIssuer}
             placeholder="例如：中国信息安全测评中心"
           />
-          {/* 业务规则：只有「已取得」才有证书可拍；未取得时给一行说明，而不是把入口藏得无影无踪 */}
+          <Text style={styles.label}>状态</Text>
+          <View style={styles.kindRow}>
+            {CERT_STATUSES.map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => setStatus(s)}
+                hitSlop={8}
+                style={[styles.kindChip, status === s && styles.kindChipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: status === s }}
+                accessibilityLabel={`状态设为${certificateStatusLabels[s]}`}
+              >
+                <Text style={[styles.kindChipText, status === s && styles.kindChipTextActive]}>{certificateStatusLabels[s]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {/* 状态先选，只有「已取得」才出现照片入口；不再用一行锁提示占版面 */}
           {status === "achieved" ? (
             <Pressable
               onPress={() => void changePhoto()}
@@ -406,29 +496,8 @@ export default function CertificatesScreen() {
               </View>
               <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
             </Pressable>
-          ) : (
-            <View style={styles.photoLockedRow}>
-              <ThemedIcon name="lock-closed-outline" size={15} color={colors.textFaint} />
-              <Text style={styles.photoLockedText}>状态改为「已取得」后可上传证书照片</Text>
-            </View>
-          )}
+          ) : null}
 
-          <Text style={styles.label}>状态</Text>
-          <View style={styles.kindRow}>
-            {CERT_STATUSES.map((s) => (
-              <Pressable
-                key={s}
-                onPress={() => setStatus(s)}
-                hitSlop={8}
-                style={[styles.kindChip, status === s && styles.kindChipActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: status === s }}
-                accessibilityLabel={`状态设为${certificateStatusLabels[s]}`}
-              >
-                <Text style={[styles.kindChipText, status === s && styles.kindChipTextActive]}>{certificateStatusLabels[s]}</Text>
-              </Pressable>
-            ))}
-          </View>
           <FloatField
             label="有效期至（YYYY-MM-DD，选填）"
             value={expiryDate}
@@ -445,6 +514,110 @@ export default function CertificatesScreen() {
             onPress={() => void submit()}
           />
         </View>
+      </BottomSheet>
+
+      {/* V12 详情：证书主视觉 + 信息行 + 分享 / 状态 / 删除 */}
+      <BottomSheet
+        visible={detailRecord !== null}
+        onClose={() => setDetailId(null)}
+        title="证书详情"
+        height="84%"
+        scroll={false}
+      >
+        {detailRecord ? (
+          <ScrollView
+            style={styles.detailScroll}
+            contentContainerStyle={styles.detailContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <CertDetailTile record={detailRecord} />
+
+            <View style={styles.detailInfo}>
+              <InfoLine label="颁发机构" value={detailRecord.issuer || "未填写"} />
+              <InfoLine label="取得日期" value={detailRecord.earnedDate || "—"} />
+              <InfoLine label="有效期" value={detailRecord.expiryDate || "长期有效"} />
+              <InfoLine label="当前状态" value={certificateStatusLabels[detailRecord.status]} last />
+            </View>
+
+            {detailImage ? (
+              <>
+                <Pressable
+                  onPress={() => setPreview({ uri: detailImage, title: detailRecord.name })}
+                  style={styles.detailImageBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="查看证书照片"
+                >
+                  <Image source={{ uri: detailImage }} style={styles.detailImage} contentFit="cover" transition={160} />
+                </Pressable>
+                {detailRecord.status === "achieved" ? (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => void uploadCertificatePhoto(detailRecord)}
+                    disabled={uploadingId === detailRecord.id}
+                    style={styles.detailPhotoLink}
+                    accessibilityRole="button"
+                    accessibilityLabel="更换证书照片"
+                  >
+                    <ThemedIcon name="camera-outline" size={15} color={colors.primary} />
+                    <Text style={styles.detailPhotoLinkText}>
+                      {uploadingId === detailRecord.id ? "上传中…" : "更换照片"}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : detailRecord.status === "achieved" ? (
+              <Pressable
+                onPress={() => void uploadCertificatePhoto(detailRecord)}
+                disabled={uploadingId === detailRecord.id}
+                style={styles.detailUpload}
+                accessibilityRole="button"
+                accessibilityLabel="上传证书照片"
+                accessibilityState={{ busy: uploadingId === detailRecord.id }}
+              >
+                <View style={styles.detailUploadIcon}>
+                  <ThemedIcon name="camera-outline" size={19} color={colors.primary} />
+                </View>
+                <Text style={styles.detailUploadText}>
+                  {uploadingId === detailRecord.id ? "上传中…" : "上传证书照片"}
+                </Text>
+                <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
+              </Pressable>
+            ) : null}
+
+            <View style={styles.detailActions}>
+              <PressButton
+                label="分享"
+                variant="ghost"
+                icon="share-social-outline"
+                fullWidth={false}
+                style={styles.detailActionBtn}
+                onPress={() => void shareCertificate(detailRecord)}
+              />
+              <PressButton
+                label="更新状态"
+                icon="ribbon-outline"
+                fullWidth={false}
+                style={styles.detailActionBtn}
+                onPress={() => {
+                  const id = detailRecord.id;
+                  setDetailId(null);
+                  setStatusSheetFor(id);
+                }}
+              />
+            </View>
+
+            <Pressable
+              onPress={() => remove(detailRecord)}
+              hitSlop={8}
+              style={styles.detailDelete}
+              accessibilityRole="button"
+              accessibilityLabel={"删除证书 " + detailRecord.name}
+            >
+              <ThemedIcon name="trash-outline" size={16} color={colors.danger} />
+              <Text style={styles.detailDeleteText}>删除证书</Text>
+            </Pressable>
+          </ScrollView>
+        ) : null}
       </BottomSheet>
 
       {/*
@@ -495,11 +668,131 @@ export default function CertificatesScreen() {
   );
 }
 
+function InfoLine({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={[styles.infoLine, !last && styles.infoLineDivider]}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
+    statsCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 16,
+      borderRadius: radius.xl,
+      backgroundColor: colors.surfaceStrong,
+      ...shadows.card,
+    },
+    statsCopy: { flex: 1, gap: 4 },
+    statsEyebrow: { ...typography.eyebrow, color: colors.textFaint, letterSpacing: 1.2 },
+    statsRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+    statsValue: { ...typography.numXl, color: colors.text },
+    statsUnit: { ...typography.caption, color: colors.textMuted },
+    statsDivider: { width: StyleSheet.hairlineWidth, height: 22, backgroundColor: colors.border, marginHorizontal: 4 },
+    statsMini: { alignItems: "flex-start", gap: 1 },
+    statsMiniValue: { ...typography.title2, fontWeight: "800", color: colors.text },
+    statsMiniLabel: { ...typography.micro, color: colors.textMuted },
+    addCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    expiryCallout: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      minHeight: 44,
+      paddingHorizontal: 13,
+      paddingVertical: 9,
+      borderRadius: radius.control,
+      backgroundColor: colors.accentSoft,
+    },
+    expiryText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong, flex: 1 },
+    group: { gap: 8 },
+    groupTitle: { marginTop: 8, marginBottom: 0 },
+    groupCard: {
+      borderRadius: radius.xl,
+      overflow: "hidden",
+      backgroundColor: colors.surfaceStrong,
+      ...shadows.card,
+    },
+    detailScroll: { flex: 1 },
+    detailContent: { gap: 14, paddingBottom: 12 },
+    detailInfo: {
+      borderRadius: radius.lg,
+      overflow: "hidden",
+      backgroundColor: colors.surfaceMuted,
+    },
+    infoLine: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      minHeight: 46,
+      paddingHorizontal: 14,
+    },
+    infoLineDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    infoLabel: { ...typography.caption, color: colors.textMuted },
+    infoValue: { ...typography.caption, fontWeight: "700", color: colors.text, flexShrink: 1, textAlign: "right" },
+    detailImageBtn: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.surfaceMuted },
+    detailImage: { width: "100%", height: 190 },
+    detailPhotoLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      minHeight: 36,
+      marginTop: -6,
+    },
+    detailPhotoLinkText: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    detailUpload: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      minHeight: 58,
+      paddingHorizontal: 12,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    detailUploadIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+    },
+    detailUploadText: { ...typography.callout, fontWeight: "700", color: colors.primary, flex: 1 },
+    detailActions: { flexDirection: "row", gap: 10 },
+    detailActionBtn: { flex: 1 },
+    detailDelete: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      minHeight: 44,
+      borderRadius: radius.control,
+      backgroundColor: colors.dangerSoft,
+    },
+    detailDeleteText: { ...typography.caption, fontWeight: "700", color: colors.danger },
     /* 主 CTA：v2 主色胶囊（高 44，图标/文字走 on-primary 色，深色下仍满足对比度） */
     addBtn: {
       alignSelf: "flex-start",
@@ -536,19 +829,6 @@ const makeStyles = (colors: ThemeColors) =>
     certPhotoMeta: { flex: 1, gap: 2 },
     certPhotoTitle: { fontSize: typography.callout.fontSize, fontWeight: "700", color: colors.text },
     certPhotoHint: { fontSize: typography.caption.fontSize, color: colors.textMuted },
-    photoLockedRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      borderRadius: radius.control,
-      borderWidth: 1,
-      borderStyle: "dashed",
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceMuted,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
-    },
-    photoLockedText: { ...typography.caption, color: colors.textMuted, flex: 1 },
     form: { gap: 10, paddingTop: 6 },
     label: { ...typography.section, color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

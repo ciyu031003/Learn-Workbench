@@ -1,42 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from "react-native-reanimated";
-import { Image, type ImageLoadEventData } from "expo-image";
+import { useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Defs, LinearGradient, Rect, Stop, Svg } from "react-native-svg";
 import { ThemedIcon } from "@/components/themed-icon";
-import {
-  ACHIEVEMENT_STAGGER_MS,
-  achievementTone,
-  type AchievementTone,
-} from "@/components/achievement-card";
 import { useTheme } from "@/theme";
-import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
-import { MOTION_BASE, easingStandard, isMotionActive } from "@/theme/motion";
+import { shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
+import { withAlpha } from "@/lib/chart-math";
 import type { Certificate } from "@learn-workbench/shared/schemas";
 import { certificateStatusLabels } from "@learn-workbench/shared/labels";
 import { certificateExpiryInfo } from "@learn-workbench/shared/pure";
+import { achievementTone, type AchievementTone } from "@/components/achievement-card";
 
 /**
- * 证书卡（V3 证书页专用）。
+ * 证书卡（V12 对齐）。
  *
- * 为什么不再直接用 AchievementCard：状态流程 + 证书图展示要求「头行徽章 / 信息 / 整宽证书图」
- * 的纵向分区，而 AchievementCard 的 body 是单列且没有凭证位。这里复用它的三样东西，保证观感不跑偏：
- *  1. `achievementTone()` 状态语义色（金=已取得 / 蓝=备考中 / 中性=计划中）；
- *  2. 52×52 图形徽章、radius.lg 圆角、shadows.card 投影、spacing 间距；
- *  3. 同一套入场错峰（40ms/项、减弱动态时直接呈现终态）。
- * 卡片**不写死高度**：所有行都是内容撑开，证书图 onLoad 读原图比例后按整卡宽推导高度。
+ * 列表用 CertRow（已获得 / 备考中 / 计划中 三组，同一行式材质），
+ * 详情用 CertDetailTile（深蓝证书主视觉 + CERTIFICATE OF ACHIEVEMENT 字样）。
+ * 这里不再把证书图/备注塞进列表卡，避免首屏被图片撑成不规则高度。
  */
 export type CertStatus = "planned" | "preparing" | "achieved";
 
@@ -56,7 +35,7 @@ export function certStatusTone(status: CertStatus): AchievementTone {
   return "neutral";
 }
 
-/** 状态对应的 soft / strong 两档颜色，供卡片徽章与状态弹层共用 */
+/** 状态对应的 soft / strong 两档颜色，供状态弹层复用 */
 export function certStatusPalette(colors: ThemeColors, status: CertStatus): { soft: string; strong: string } {
   return achievementTone(colors, certStatusTone(status));
 }
@@ -67,337 +46,165 @@ export const CERT_STATUS_ICON: Record<CertStatus, Parameters<typeof ThemedIcon>[
   achieved: "trophy",
 };
 
-export function CertCard({
+/** 列表三组的识别色：已获得绿 / 备考中橙 / 计划中紫（对齐 demo listRow tone） */
+export function certRowPalette(colors: ThemeColors, status: CertStatus): { soft: string; strong: string } {
+  if (status === "achieved") return { soft: colors.successSoft, strong: colors.success };
+  if (status === "preparing") return { soft: colors.accentSoft, strong: colors.accentStrong };
+  return { soft: withAlpha(colors.lavender, 0.14), strong: colors.lavender };
+}
+
+export function CertRow({
   record,
-  index = 0,
-  imageUri,
-  uploading = false,
-  onOpenStatus,
-  onUpload,
-  onDelete,
-  onPreview,
+  onPress,
+  last = false,
 }: {
   record: Certificate;
-  /** 列表位置：入场错峰（与 AchievementCard 同一节奏） */
-  index?: number;
-  /** 已解析好的图片地址（服务端相对路径 → 绝对；离线暂存 → 本机 file://） */
-  imageUri: string | null;
-  /** 这张证书的图片正在上传（禁用入口 + 转圈） */
-  uploading?: boolean;
-  onOpenStatus: () => void;
-  onUpload: () => void;
-  onDelete: () => void;
-  onPreview: (uri: string) => void;
+  onPress: () => void;
+  last?: boolean;
 }): React.JSX.Element {
   const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const status = (record.status ?? "planned") as CertStatus;
-  const tone = certStatusTone(status);
-  const palette = useMemo(() => achievementTone(colors, tone), [colors, tone]);
-  const styles = useMemo(() => makeStyles(colors, palette), [colors, palette]);
-  const reduceMotion = useReducedMotion();
-  const active = isMotionActive(reduceMotion);
-
-  /**
-   * 证书图按**原始宽高比**占满整卡宽（v1.50 布局修正）。
-   * 旧版是「左信息 + 右侧 36% 缩略框（固定 4:3 + contain）」：没有备注时左边整块空白，
-   * contain 又在框里留边，证书看起来缩在右下角。现在改为 onLoad 读出原图比例
-   * （expo-image 事件自带 source 尺寸，零额外请求），加载前先按 4:3 占位防跳变；
-   * 竖版照片 / 超宽横版各设上下限，避免极端比例把卡片撑得没法看。
-   */
-  const [imageAspect, setImageAspect] = useState(4 / 3);
-  const onImageLoad = (e: ImageLoadEventData) => {
-    const w = e.source?.width;
-    const h = e.source?.height;
-    if (w && h && w > 0 && h > 0) {
-      setImageAspect(Math.min(2.6, Math.max(0.7, w / h)));
-    }
-  };
-
-  // ⚠️ 顺序约束（见 CLAUDE.md「手势与 worklet」）：shared value 必须声明在 useAnimatedStyle 之前
-  const enter = useSharedValue(active ? 0 : 1);
-
-  useEffect(() => {
-    if (!active) {
-      enter.value = 1;
-      return;
-    }
-    enter.value = withDelay(
-      Math.max(0, index) * ACHIEVEMENT_STAGGER_MS,
-      withTiming(1, { duration: MOTION_BASE, easing: easingStandard })
-    );
-  }, [active, enter, index]);
-
-  const enterStyle = useAnimatedStyle<ViewStyle>(() => ({
-    opacity: enter.value,
-    transform: [{ translateY: (1 - enter.value) * -10 }],
-  }));
-
-  const expiry = certificateExpiryInfo(record.expiryDate);
-  const statusLabel = certificateStatusLabels[status];
-  const hasInfo = expiry.level !== "none" || !!record.earnedDate || !!record.note;
+  const palette = certRowPalette(colors, status);
+  const expiry = certificateExpiryInfo(record.expiryDate ?? null);
+  const dateLabel = status === "achieved" ? record.earnedDate : record.targetDate;
+  const meta = [record.issuer || null, dateLabel || null].filter(Boolean).join(" · ") || "未填写机构";
+  const urgent = expiry.level === "soon" || expiry.level === "expired";
 
   return (
-    <Animated.View style={[styles.card, enterStyle]}>
-      <View style={styles.headRow}>
-        {/* 左侧图标保持原证书卡的图形位（52×52 圆角徽章 + 状态语义色） */}
-        <View style={styles.graphic}>
-          <ThemedIcon name={CERT_STATUS_ICON[status]} size={26} color={palette.strong} />
-        </View>
-
-        <View style={styles.headBody}>
-          <Text style={styles.title} numberOfLines={2}>
-            {record.name}
-          </Text>
-          {record.issuer ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {record.issuer}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* 状态徽章：颜色区分三档（中性 / 品牌蓝 / 金） */}
-        <View style={styles.badge}>
-          <View style={styles.badgeDot} />
-          <Text style={styles.badgeText} accessibilityLabel={`状态：${statusLabel}`}>
-            {statusLabel}
-          </Text>
-        </View>
+    <Pressable
+      onPress={onPress}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={"查看证书 " + record.name + "，状态" + certificateStatusLabels[status]}
+      style={({ pressed }) => [styles.row, !last && styles.rowDivider, pressed && styles.pressed]}
+    >
+      <View style={[styles.rowIcon, { backgroundColor: palette.soft }]}>
+        <ThemedIcon name={CERT_STATUS_ICON[status]} size={20} color={palette.strong} />
       </View>
-
-      {hasInfo || imageUri ? (
-        <>
-          {hasInfo ? (
-            <View style={styles.infoCol}>
-              <View style={styles.metaRow}>
-                {record.earnedDate ? (
-                  <Text style={styles.meta}>取得 {record.earnedDate.slice(0, 10)}</Text>
-                ) : null}
-                {expiry.level === "ok" ? <Text style={styles.metaStrong}>{expiry.label}</Text> : null}
-                {expiry.level === "soon" || expiry.level === "expired" ? (
-                  <Text style={expiry.level === "expired" ? styles.metaDanger : styles.metaWarn}>
-                    {expiry.label}
-                  </Text>
-                ) : null}
-              </View>
-              {record.note ? (
-                <Text style={styles.note} numberOfLines={2}>
-                  {record.note}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-
-          {/* 证书图占满整卡宽、按原图比例给高（点开全屏预览不变） */}
-          {imageUri ? (
-            <Pressable
-              onPress={() => onPreview(imageUri)}
-              style={({ pressed }) => [styles.imageBtn, pressed && styles.pressed]}
-              accessibilityRole="imagebutton"
-              accessibilityLabel={`查看「${record.name}」的证书图片`}
-              accessibilityHint="打开全屏预览"
-            >
-              <Image
-                source={{ uri: imageUri }}
-                style={[styles.image, { aspectRatio: imageAspect }]}
-                contentFit="cover"
-                transition={200}
-                onLoad={onImageLoad}
-              />
-              <View style={styles.imageExpand} pointerEvents="none">
-                <ThemedIcon
-                  ios="arrow.up.left.and.arrow.down.right"
-                  name="expand-outline"
-                  size={11}
-                  color={colors.textSecondary}
-                />
-              </View>
-            </Pressable>
-          ) : null}
-        </>
-      ) : null}
-
-      {/* 已取得才出现上传入口：计划中/备考中还没有证书可拍，提前露出只会造成误解 */}
-      {status === "achieved" ? (
-        <Pressable
-          onPress={onUpload}
-          disabled={uploading}
-          style={({ pressed }) => [styles.uploadRow, pressed && styles.pressed, uploading && styles.dim]}
-          accessibilityRole="button"
-          accessibilityLabel={`上传「${record.name}」的证书图片`}
-          accessibilityHint="从相册选择证书照片"
-          accessibilityState={{ disabled: uploading, busy: uploading }}
-        >
-          <View style={styles.uploadBadge}>
-            {uploading ? (
-              <ActivityIndicator size="small" color={colors.accentStrong} />
-            ) : (
-              <ThemedIcon ios="camera" name="camera-outline" size={17} color={colors.accentStrong} />
-            )}
-          </View>
-          <View style={styles.uploadBody}>
-            <Text style={styles.uploadTitle}>
-              {uploading ? "上传中…" : imageUri ? "更换证书图片" : "上传证书图片"}
-            </Text>
-            <Text style={styles.uploadHint}>
-              {uploading ? "正在上传并保存到这张证书" : "从相册选择 · 自动压缩为 WebP"}
-            </Text>
-          </View>
-          {uploading ? null : <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />}
-        </Pressable>
-      ) : null}
-
-      <View style={styles.actionRow}>
-        {/* 44pt 命中区：动作面板入口（与「我的求职」更新阶段同一交互：点开 → 单选 → 乐观更新） */}
-        <Pressable
-          onPress={onOpenStatus}
-          style={({ pressed }) => [styles.statusBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel={`更新「${record.name}」的状态，当前为${statusLabel}`}
-          accessibilityHint="打开状态选择面板"
-        >
-          <ThemedIcon name="repeat-outline" size={15} color={colors.textMuted} />
-          <Text style={styles.statusBtnLabel} numberOfLines={1}>
-            更新状态
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {record.name}
+        </Text>
+        <Text style={styles.rowMeta} numberOfLines={1}>
+          {meta}
+        </Text>
+        {urgent ? (
+          <Text style={[styles.rowExpiry, expiry.level === "expired" && styles.rowExpiryDanger]}>
+            {expiry.label}
           </Text>
-          <Text style={styles.statusBtnValue} numberOfLines={1}>
-            {statusLabel}
-          </Text>
-          <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
-        </Pressable>
-
-        <Pressable
-          onPress={onDelete}
-          hitSlop={8}
-          style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel={`删除「${record.name}」`}
-        >
-          <ThemedIcon name="trash-outline" size={18} color={colors.textFaint} />
-        </Pressable>
+        ) : null}
       </View>
-    </Animated.View>
+      <View style={styles.rowEnd}>
+        <Text style={[styles.rowStatus, { color: palette.strong }]}>{certificateStatusLabels[status]}</Text>
+        <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+      </View>
+    </Pressable>
   );
 }
 
-const makeStyles = (colors: ThemeColors, palette: { soft: string; strong: string }) =>
+/** 详情主视觉：深蓝渐变证书卡（对齐 demo .cert-tile） */
+export function CertDetailTile({ record }: { record: Certificate }): React.JSX.Element {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const status = (record.status ?? "planned") as CertStatus;
+  return (
+    <View style={styles.tile}>
+      {/* 固定 viewBox + 数字尺寸：Android 上百分比 Rect 偶发不绘制，底下的深蓝底色保证文字始终可读 */}
+      <Svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 60"
+        preserveAspectRatio="none"
+        style={StyleSheet.absoluteFill}
+      >
+        <Defs>
+          <LinearGradient id="certTile" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#244A6A" />
+            <Stop offset="0.56" stopColor="#2F74C0" />
+            <Stop offset="1" stopColor="#5D9AD0" />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width={100} height={60} fill="url(#certTile)" />
+      </Svg>
+      <View pointerEvents="none" style={styles.tileRing} />
+      <Text style={styles.tileEyebrow}>CERTIFICATE OF ACHIEVEMENT</Text>
+      <Text style={styles.tileName}>{record.name}</Text>
+      <Text style={styles.tileIssuer}>{record.issuer || "—"}</Text>
+      <View style={styles.tileBottom}>
+        <View>
+          <Text style={styles.tileSmall}>ISSUED</Text>
+          <Text style={styles.tileValue}>{record.earnedDate || record.targetDate || "—"}</Text>
+        </View>
+        <View style={styles.tileBottomRight}>
+          <Text style={styles.tileSmall}>STATUS</Text>
+          <Text style={styles.tileValue}>{certificateStatusLabels[status]}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    card: {
-      borderRadius: radius.card,
-      borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceStrong,
-      padding: spacing.lg,
-      gap: spacing.sm,
-      ...shadows.card,
-    },
-    headRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
-    graphic: {
-      width: 52,
-      height: 52,
-      borderRadius: radius.md,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: palette.soft,
-    },
-    headBody: { flex: 1, minWidth: 0, gap: 3 },
-    title: { ...typography.headline, color: colors.text },
-    subtitle: { ...typography.caption, fontWeight: "500", color: colors.textMuted },
-    badge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      alignSelf: "flex-start",
-      borderRadius: radius.pill,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: palette.strong + "55",
-      backgroundColor: palette.soft,
-      paddingHorizontal: 9,
-      paddingVertical: 4,
-    },
-    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: palette.strong },
-    badgeText: { ...typography.micro, fontWeight: "800", color: palette.strong },
-    infoCol: { gap: 3 },
-    metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-    meta: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
-    metaStrong: { ...typography.micro, fontWeight: "700", color: palette.strong },
-    metaWarn: { ...typography.micro, fontWeight: "700", color: colors.accentStrong },
-    metaDanger: { ...typography.micro, fontWeight: "700", color: colors.danger },
-    note: { ...typography.callout, color: colors.textSecondary },
-    imageBtn: {
-      // 全卡宽 + onLoad 实测的原图 aspectRatio（极端比例在 onImageLoad 里夹在 0.7~2.6）
-      width: "100%",
-      borderRadius: radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceMuted,
-      overflow: "hidden",
-    },
-    image: { width: "100%" },
-    imageExpand: {
-      position: "absolute",
-      right: 8,
-      top: 8,
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceStrong,
-      opacity: 0.92,
-    },
-    uploadRow: {
+    /* 列表行：一个连续容器里的三组，分隔线只画在行与行之间 */
+    row: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      minHeight: 56,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderStyle: "dashed",
-      borderColor: colors.accent,
-      backgroundColor: colors.accentSoft,
-      paddingHorizontal: 12,
+      minHeight: 72,
+      paddingHorizontal: spacing.md,
       paddingVertical: 10,
-    },
-    uploadBadge: {
-      width: 34,
-      height: 34,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
       backgroundColor: colors.surfaceStrong,
     },
-    uploadBody: { flex: 1, minWidth: 0, gap: 1 },
-    uploadTitle: { ...typography.callout, fontWeight: "700", color: colors.accentStrong },
-    uploadHint: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
-    actionRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.sm,
-      marginTop: 2,
-      paddingTop: 10,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
-    },
-    statusBtn: {
-      flex: 1,
-      minHeight: 44,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      borderRadius: radius.md,
-      paddingHorizontal: 10,
-      backgroundColor: colors.surfaceMuted,
-    },
-    statusBtnLabel: { ...typography.caption, fontWeight: "700", color: colors.textSecondary, flexShrink: 1 },
-    statusBtnValue: { ...typography.caption, fontWeight: "800", color: palette.strong, flexShrink: 1 },
-    deleteBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: radius.md,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceMuted,
-    },
+    rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
     pressed: { opacity: 0.72 },
-    dim: { opacity: 0.7 },
+    rowIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    rowBody: { flex: 1, minWidth: 0, gap: 2 },
+    rowTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    rowMeta: { ...typography.micro, color: colors.textMuted },
+    rowExpiry: { ...typography.micro, fontWeight: "700", color: colors.accentStrong },
+    rowExpiryDanger: { color: colors.danger },
+    rowEnd: { alignItems: "flex-end", gap: 4 },
+    rowStatus: { ...typography.micro, fontWeight: "800" },
+
+    /* 详情证书主视觉 */
+    tile: {
+      position: "relative",
+      overflow: "hidden",
+      padding: 20,
+      borderRadius: 20,
+      minHeight: 170,
+      backgroundColor: "#244A6A",
+      ...shadows.floating,
+    },
+    tileRing: {
+      position: "absolute",
+      top: -84,
+      right: -54,
+      width: 190,
+      height: 190,
+      borderRadius: 95,
+      borderWidth: 30,
+      borderColor: "rgba(255,255,255,0.08)",
+    },
+    tileEyebrow: {
+      ...typography.eyebrow,
+      color: "rgba(255,255,255,0.72)",
+      letterSpacing: 1.8,
+      textTransform: "uppercase",
+    },
+    tileName: { ...typography.title1, color: "#FFFFFF", marginTop: 9, letterSpacing: -0.6 },
+    tileIssuer: { ...typography.caption, color: "rgba(255,255,255,0.76)", marginTop: 4 },
+    tileBottom: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+      gap: spacing.md,
+      marginTop: "auto",
+      paddingTop: 22,
+    },
+    tileBottomRight: { alignItems: "flex-end" },
+    tileSmall: { ...typography.eyebrow, color: "rgba(255,255,255,0.62)", letterSpacing: 1 },
+    tileValue: { ...typography.caption, fontWeight: "800", color: "#FFFFFF", marginTop: 3 },
   });
