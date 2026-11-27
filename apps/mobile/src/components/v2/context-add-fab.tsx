@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { router, usePathname } from "expo-router";
 import type { EdgeInsets } from "react-native-safe-area-context";
@@ -89,8 +89,27 @@ export function ContextAddFab({ insets }: { insets: EdgeInsets }) {
   const pathname = usePathname();
   const token = useAppStore((state) => state.token);
   const [open, setOpen] = useState(false);
+  const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const { title, items } = actionsFor(pathname);
+
+  // 路由一变就收起菜单：Modal 的原生窗口若留在下一屏上，会透明地挡住所有点击。
+  useEffect(() => {
+    // 放到下一个 tick，避免在 effect 内同步 setState（React Compiler lint）。
+    const timer = setTimeout(() => setOpen(false), 0);
+    return () => clearTimeout(timer);
+  }, [pathname]);
+
+  // 等淡出动画结束再跳转，避免 Modal 关闭与路由切换竞争后残留透明窗口。
+  useEffect(() => {
+    if (open || !pendingRoute) return;
+    const timer = setTimeout(() => {
+      const route = pendingRoute;
+      setPendingRoute(null);
+      router.push(route as never);
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [open, pendingRoute]);
 
   const run = async (action: AddAction) => {
     haptics.light();
@@ -106,7 +125,7 @@ export function ContextAddFab({ insets }: { insets: EdgeInsets }) {
       return;
     }
     setOpen(false);
-    if (action.route) router.push(action.route as never);
+    if (action.route) setPendingRoute(action.route);
   };
 
   return (

@@ -7,7 +7,7 @@ import { useV15 } from "@/components/v15/v15-theme";
 import { V15Button, V15Card, V15Header, V15IconButton, V15Note, V15Pill, V15ProgressBar, V15Scroll, V15Section, useV15Layout } from "@/components/v15/v15-ui";
 import { bedtimeWindow } from "@/lib/v15/sleep-model";
 import { normalizeSleepNights, sleepApi, type SleepNight } from "@/lib/sleep-api";
-import { isSleepDateKey, parseSleepDurationInput, shiftSleepDate, sleepClockToIso } from "@/lib/sleep-view";
+import { isSleepDateKey, normalizeClockInput, parseSleepDurationInput, shiftSleepDate, sleepClockToIso } from "@/lib/sleep-view";
 import { haptics } from "@/lib/haptics";
 import { takeNavPendingParams } from "@/lib/nav-pending";
 import { todayISO } from "@learn-workbench/shared/dates";
@@ -43,7 +43,18 @@ export default function SleepAddScreen() {
     return days.includes(initialDate) ? days : [initialDate, ...days];
   }, [initialDate, todayKey]);
 
+  const goBack = useCallback(() => {
+    const canPop = typeof router.canGoBack === "function" && router.canGoBack();
+    if (canPop) {
+      router.back();
+      return;
+    }
+    router.replace("/sleep" as never);
+  }, []);
+
   const prefillRef = useRef<string | null>(null);
+  const bedtimeInputRef = useRef<TextInput>(null);
+  const wakeInputRef = useRef<TextInput>(null);
 
   // 从睡眠页点「编辑」时通过 nav-pending 传入完整字段（Health Connect 记录也可能不在本机列表里）
   useFocusEffect(
@@ -220,7 +231,7 @@ export default function SleepAddScreen() {
       await sleepApi.deleteSleepNight(editingNight.date);
     }
     haptics.success();
-    router.back();
+    goBack();
   }, [awakeNum, bedtime, bedtimeIso, date, deep, deepMin, durationMin, editingNight, efficiencyNum, rem, remMin, wakeIso, wakeTime]);
 
   const remove = useCallback(() => {
@@ -233,7 +244,7 @@ export default function SleepAddScreen() {
           void (async () => {
             await sleepApi.deleteSleepNight(date);
             haptics.warning();
-            router.back();
+            goBack();
           })();
         },
       },
@@ -249,8 +260,8 @@ export default function SleepAddScreen() {
             kicker="LOG SLEEP"
             title={editingNight ? "编辑睡眠" : "记录睡眠"}
             subtitle={editingNight ? "修改这一晚 · 同一天保存会覆盖原记录" : "补录一晚 · 自动计算时长与评分"}
-            onBack={() => router.back()}
-            actions={<V15IconButton p={p} icon="close" label="关闭" onPress={() => router.back()} size={16} weight="bold" />}
+            onBack={() => goBack()}
+            actions={<V15IconButton p={p} icon="close" label="关闭" onPress={() => goBack()} size={16} weight="bold" />}
           />
 
           <V15Card p={p} style={{ marginTop: 16 }}>
@@ -282,40 +293,54 @@ export default function SleepAddScreen() {
             <View style={styles.timeRow}>
               <View style={styles.timeCell}>
                 <Text style={[styles.label, { color: p.sub }]}>入睡</Text>
-                <View style={[styles.timeInput, { backgroundColor: p.card2, borderColor: p.line }]}>
+                <Pressable
+                  onPress={() => bedtimeInputRef.current?.focus()}
+                  style={[styles.timeInput, { backgroundColor: p.card2, borderColor: p.line }]}
+                  accessible={false}
+                >
                   <TextInput
+                    ref={bedtimeInputRef}
                     value={bedtime}
                     onChangeText={(value) => {
-                      setBedtime(value);
+                      setBedtime((prev) => normalizeClockInput(value, prev));
                       setError(null);
                     }}
                     placeholder="23:12"
                     placeholderTextColor={p.faint}
                     style={[styles.timeText, { color: p.ink }]}
-                    keyboardType="numbers-and-punctuation"
+                    keyboardType="numeric"
                     accessibilityLabel="入睡时间"
+                    onBlur={() => setBedtime((value) => normalizeClockInput(value))}
+                    maxLength={5}
                   />
                   <Icon name="clock" size={15} weight="regular" color={p.sub} />
-                </View>
+                </Pressable>
               </View>
               <Icon name="chevron" size={16} weight="bold" color={p.faint} />
               <View style={styles.timeCell}>
                 <Text style={[styles.label, { color: p.sub }]}>起床</Text>
-                <View style={[styles.timeInput, { backgroundColor: p.card2, borderColor: p.line }]}>
+                <Pressable
+                  onPress={() => wakeInputRef.current?.focus()}
+                  style={[styles.timeInput, { backgroundColor: p.card2, borderColor: p.line }]}
+                  accessible={false}
+                >
                   <TextInput
+                    ref={wakeInputRef}
                     value={wakeTime}
                     onChangeText={(value) => {
-                      setWakeTime(value);
+                      setWakeTime((prev) => normalizeClockInput(value, prev));
                       setError(null);
                     }}
                     placeholder="07:10"
                     placeholderTextColor={p.faint}
                     style={[styles.timeText, { color: p.ink }]}
-                    keyboardType="numbers-and-punctuation"
+                    keyboardType="numeric"
                     accessibilityLabel="起床时间"
+                    onBlur={() => setWakeTime((value) => normalizeClockInput(value))}
+                    maxLength={5}
                   />
                   <Icon name="clock" size={15} weight="regular" color={p.sub} />
-                </View>
+                </Pressable>
               </View>
             </View>
 
@@ -530,7 +555,7 @@ const makeStyles = (p: ReturnType<typeof useV15>) =>
     timeRow: { flexDirection: "row", alignItems: "flex-end", gap: 8, marginTop: 14 },
     timeCell: { flex: 1, minWidth: 0 },
     timeInput: { height: 52, borderRadius: 15, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12 },
-    timeText: { flex: 1, ...typography.hero, paddingVertical: 0 },
+    timeText: { flex: 1, height: 50, textAlignVertical: "center", ...typography.hero, paddingVertical: 0 },
     input: { height: 48, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, ...typography.callout },
     preview: { marginTop: 14, borderRadius: 18, borderWidth: 1, padding: 13 },
     previewTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

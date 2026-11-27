@@ -44,7 +44,8 @@ fi
 # 逐个应用未执行的迁移（S4-1：单事务 + checksum + 台账同事务）
 for m in "$INIT_DIR"/db/migrations/*.sql; do
   base="$(basename "$m")"
-  sum="$(sha256sum "$m" | cut -d' ' -f1)"
+  # Windows 侧 tar 部署会带来 CRLF：行尾不是 SQL 语义，统一按 LF 计算校验和，避免误报「内容被修改」。
+  sum="$(sed 's/\r$//' "$m" | sha256sum | cut -d' ' -f1)"
   row="$(psql_run -tAF'|' -c "SELECT checksum FROM schema_migrations WHERE filename='$base'" 2>/dev/null | tr -d '[:space:]')"
   if [ -n "$row" ]; then
     if [ -n "$row" ] && [ "$row" != "|" ] && [ "$row" != "$sum" ]; then

@@ -209,6 +209,26 @@ export function sleepClockText(iso: string | null | undefined): string {
   return pad2(date.getHours()) + ":" + pad2(date.getMinutes());
 }
 
+/**
+ * 时钟输入归一化：只保留数字；3 位自动补零小时，4 位自动补冒号。
+ * 例：740 → 07:40 / 930 → 09:30 / 0740 → 07:40 / 23:10 → 23:10。
+ * 输入过程中的 1-2 位原样保留，交给 sleepClockToIso 判断是否完整。
+ *
+ * prev 用于识别退格：删除时保留用户眼前的串，不再补零/挪冒号，
+ * 否则从 23:10 退格会跳成 02:31，编辑已有时刻几乎不可用。
+ */
+export function normalizeClockInput(raw: string, prev = ""): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (!digits) return "";
+  const prevDigits = prev.replace(/\D/g, "");
+  if (digits.length < prevDigits.length) {
+    return raw.replace(/[^\d:]/g, "").slice(0, 5);
+  }
+  if (digits.length <= 2) return digits;
+  const hourDigits = digits.length === 3 ? 1 : 2;
+  return digits.slice(0, hourDigits).padStart(2, "0") + ":" + digits.slice(hourDigits);
+}
+
 /** 时钟串（HH:mm）→ 与起床日拼成 ISO；role 决定跨零点归属 */
 export function sleepClockToIso(dateKey: string, clock: string, role: "bedtime" | "wakeTime"): string | null {
   const match = /^(\d{1,2}):(\d{1,2})$/.exec(clock.trim());

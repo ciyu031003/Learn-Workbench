@@ -464,7 +464,7 @@ export function V15SleepDashboard({
                   accessibilityLabel={"编辑 " + sleepMonthDay(night.date) + " 的睡眠记录"}
                   style={styles.recordEdit}
                 >
-                  <Icon name="clock" size={14} weight="regular" color={p.faint} />
+                  <Icon name="edit" size={15} weight="regular" color={p.sub} />
                 </Pressable>
               </Pressable>
             );

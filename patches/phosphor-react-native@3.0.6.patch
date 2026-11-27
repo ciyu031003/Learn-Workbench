@@ -1,0 +1,20 @@
+diff --git a/src/lib/icon-base.tsx b/src/lib/icon-base.tsx
+index 28da945d155e294fb7408f4c5aff525767598465..25e24afa84b929722171bcb91ab63aaf1f8871bd 100644
+--- a/src/lib/icon-base.tsx
++++ b/src/lib/icon-base.tsx
+@@ -45,14 +45,13 @@ function IconBase({
+           }),
+         },
+       ]}
+-      className={`${name}-${weight}__svg-icon-phosphor`}
+       testID={props.testID ?? `phosphor-react-native-${name}-${weight}`}
+       fill="currentColor"
+       viewBox="0 0 256 256"
+       width={size ?? contextSize}
+       height={size ?? contextSize}
+       color={color ?? contextColor}
+-      aria-labelledby={titleId}
++      accessibilityLabel={title}
+       {...props}
+     >
+       {title ? <title id={titleId}>{title}</title> : null}

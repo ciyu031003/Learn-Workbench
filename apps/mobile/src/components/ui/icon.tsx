@@ -57,6 +57,7 @@ import { HeartIcon } from "phosphor-react-native/src/icons/Heart";
 import { ClockIcon } from "phosphor-react-native/src/icons/Clock";
 import { CameraIcon } from "phosphor-react-native/src/icons/Camera";
 import { ShareNetworkIcon } from "phosphor-react-native/src/icons/ShareNetwork";
+import { NotePencilIcon } from "phosphor-react-native/src/icons/NotePencil";
 
 /**
  * Phosphor 图标系统（V7 设计语言）。
@@ -148,6 +149,7 @@ const ICONS = {
   pulse: PulseIcon,
   heart: HeartIcon,
   clock: ClockIcon,
+  edit: NotePencilIcon,
   camera: CameraIcon,
   share: ShareNetworkIcon,
 } as const;

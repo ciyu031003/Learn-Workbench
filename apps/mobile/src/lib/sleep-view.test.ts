@@ -7,6 +7,7 @@ import {
   fallbackSleepStageSlices,
   fallbackSleepStats,
   mergeHealthNights,
+  normalizeClockInput,
   parseSleepDurationInput,
   regularityLabelOf,
   sleepClockText,
@@ -236,5 +237,32 @@ describe("合并 / 窗口 / 热力", () => {
   it("平均钟点：非法 → 「—」", () => {
     expect(averageClockText([makeNight()], "bedtime")).toBe("23:30");
     expect(averageClockText([makeNight({ bedtime: "" })], "bedtime")).toBe("—");
+  });
+});
+
+describe("normalizeClockInput", () => {
+  it("把紧凑输入补成 HH:mm", () => {
+    expect(normalizeClockInput("740")).toBe("07:40");
+    expect(normalizeClockInput("930")).toBe("09:30");
+    expect(normalizeClockInput("0740")).toBe("07:40");
+    expect(normalizeClockInput("23:10")).toBe("23:10");
+    expect(normalizeClockInput("23:10:00")).toBe("23:10");
+  });
+
+  it("保留输入中间态并忽略非数字", () => {
+    expect(normalizeClockInput("")).toBe("");
+    expect(normalizeClockInput("7")).toBe("7");
+    expect(normalizeClockInput("23")).toBe("23");
+    expect(normalizeClockInput("ab07cd40")).toBe("07:40");
+  });
+
+  it("退格时不重新补零挪冒号（编辑 23:10 不会跳成 02:31）", () => {
+    expect(normalizeClockInput("23:1", "23:10")).toBe("23:1");
+    expect(normalizeClockInput("07:4", "07:40")).toBe("07:4");
+    expect(normalizeClockInput("2", "23")).toBe("2");
+    // 继续输入补齐后仍会格式化
+    expect(normalizeClockInput("07:45", "07:4")).toBe("07:45");
+    // 清空
+    expect(normalizeClockInput("", "7")).toBe("");
   });
 });

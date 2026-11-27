@@ -384,7 +384,8 @@ export function useGrowthData(): GrowthScreenData {
       : 2000;
 
   const exerciseMinutes = todayWorkout?.minutes ?? data?.fitness.workoutMinutes ?? 0;
-  const trainingRecorded = exerciseMinutes > 0;
+  // 有记录就算「已训练」：时长可以不填（见 workbench 训练记录允许 0 分钟）。
+  const trainingRecorded = todayWorkout !== null || exerciseMinutes > 0;
   const trainingName = todayWorkout?.name ?? data?.fitness.workoutName ?? null;
   const trainingActions = todayWorkout?.actions ?? 0;
 

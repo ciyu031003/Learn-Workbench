@@ -427,7 +427,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     company: { ...typography.callout, fontWeight: "700", color: colors.text },
     city: { ...typography.meta, color: colors.textMuted },
     favBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-    title: { ...typography.hero, paddingHorizontal: spacing.lg, color: colors.text, fontSize: 22, lineHeight: 30 },
+    title: { ...typography.title2, paddingHorizontal: spacing.lg, color: colors.text },
     salaryRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: spacing.sm },
     salary: { ...typography.title2, color: colors.primary, fontWeight: "800" },
     countChip: { marginLeft: "auto", paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },

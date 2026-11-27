@@ -395,7 +395,7 @@ export function GrowthDashboard({
             color={GREEN}
             name="训练"
             sub={`本周 ${growth.weekWorkouts} 次 · 目标 3 次`}
-            footLeft={growth.trainingRecorded ? growth.trainingName ?? "今日训练" : "本周还没有训练"}
+            footLeft={growth.trainingRecorded ? growth.trainingName ?? "今日训练" : growth.weekWorkouts > 0 ? "今天还没有训练" : "本周还没有训练"}
             footRight={growth.trainingRecorded ? `${growth.trainingActions} 个动作` : "待补练"}
             onPress={() => router.push("/workout-add" as never)}
           />

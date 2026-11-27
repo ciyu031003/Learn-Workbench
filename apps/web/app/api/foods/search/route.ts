@@ -57,7 +57,7 @@ export async function GET(req: Request) {
                      OR EXISTS (SELECT 1 FROM unnest(fi.aliases) AS a WHERE strpos(lower(a), lower($2::text)) > 0)
                    THEN 1 ELSE 0 END) AS hit
          ) s
-        WHERE s.hit = 1 OR s.score >= 0.5
+        WHERE fi.status = 'approved' AND (s.hit = 1 OR s.score >= 0.5)
         ORDER BY (CASE WHEN $3::text IS NOT NULL AND fi.meal_tags @> ARRAY[$3::text] THEN 1 ELSE 0 END) DESC,
                  s.hit DESC, COALESCE(u.times, 0) DESC, s.score DESC, fi.name
         LIMIT ${limit}`,

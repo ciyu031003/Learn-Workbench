@@ -18,6 +18,7 @@ import { mealForNow } from "@/lib/meal-time";
 import { summarizeRange, pickWindowSummary, toDaySummaryMap, todayAndYesterday, weekKeysOf, weekEndKey, isCurrentWeek, WEEK_TILE_LABELS, type DaySummaryRow } from "@/lib/nutrition-views";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
+import { contributeFoodItem } from "@/lib/food-contribution";
 import { type Food, type MealEntry, type MealKind } from "@learn-workbench/shared/schemas";
 import { type FoodItemHit } from "@learn-workbench/shared/types";
 import { fromDateKey, recentDateKeys, toDateKey } from "@learn-workbench/shared/dates";
@@ -745,6 +746,21 @@ export function useNutritionScreen({ initialDate, searchEnabled = false, initial
       if (!outcome.ok && !isRetryable(outcome)) {
         Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录。");
         return;
+      }
+      // 手动录入的食材匿名沉淀到公共食物库：服务端按名称去重，失败不阻塞主流程。
+      if (outcome.ok || isRetryable(outcome)) {
+        void contributeFoodItem(
+          {
+            name,
+            unit: body.unit || "份",
+            kcal: body.kcal ?? 0,
+            proteinG: body.proteinG ?? 0,
+            carbsG: body.carbsG ?? 0,
+            fatG: body.fatG ?? 0,
+            meal,
+          },
+          headers()
+        );
       }
       if (!outcome.ok) {
         // 离线 / 服务端错误 / 未登录：先落本机再补发。

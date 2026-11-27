@@ -15,6 +15,7 @@ import { typography } from "@/theme/tokens";
 import { useV15 } from "@/components/v15/v15-theme";
 import { V15Button, V15Card, V15Header, V15IconButton, V15ProgressBar, V15Scroll, V15Section, useV15Layout } from "@/components/v15/v15-ui";
 import { useNutritionScreen } from "@/lib/nutrition/use-nutrition-screen";
+import { useAppStore } from "@/store/app-store";
 import { MEALS } from "@/lib/nutrition/constants";
 import { isDateKey } from "@/lib/nutrition-stats";
 import { mealForNow } from "@/lib/meal-time";
@@ -32,7 +33,17 @@ import type { MealKind } from "@learn-workbench/shared/schemas";
 export default function NutritionAddScreen() {
   const p = useV15();
   const layout = useV15Layout();
+  const token = useAppStore((state) => state.token);
   const styles = useMemo(() => makeStyles(p), [p]);
+  const goBack = useCallback(() => {
+    const canPop = typeof router.canGoBack === "function" && router.canGoBack();
+    if (canPop) {
+      router.back();
+      return;
+    }
+    router.replace("/nutrition" as never);
+  }, []);
+
   const params = useLocalSearchParams<{ date?: string; meal?: string }>();
   const { today } = useMemo(() => todayAndYesterday(), []);
   const initialDate = isDateKey(params.date) ? params.date : today;
@@ -42,7 +53,7 @@ export default function NutritionAddScreen() {
     initialDate,
     initialMeal,
     searchEnabled: true,
-    onSaved: () => router.back(),
+    onSaved: () => goBack(),
   });
   const {
     date,
@@ -98,8 +109,8 @@ export default function NutritionAddScreen() {
             kicker="LOG FOOD"
             title="记录饮食"
             subtitle={dateText + " · " + mealKindLabels[meal] + " · 营养估算可修正"}
-            onBack={() => router.back()}
-            actions={<V15IconButton p={p} icon="close" label="关闭" onPress={() => router.back()} size={16} weight="bold" />}
+            onBack={() => goBack()}
+            actions={<V15IconButton p={p} icon="close" label="关闭" onPress={() => goBack()} size={16} weight="bold" />}
           />
 
           <V15Card p={p} style={{ marginTop: 16 }}>
@@ -308,16 +319,28 @@ export default function NutritionAddScreen() {
                   />
                 </View>
               </View>
-              <Pressable onPress={() => setSaveAsCommon((value) => !value)} style={styles.switchRow} accessibilityRole="switch" accessibilityState={{ checked: saveAsCommon }}>
+              <Pressable
+                onPress={() => {
+                  if (token) setSaveAsCommon((value) => !value);
+                }}
+                disabled={!token}
+                style={styles.switchRow}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: Boolean(token) && saveAsCommon, disabled: !token }}
+              >
                 <Switch
-                  value={saveAsCommon}
+                  value={Boolean(token) && saveAsCommon}
                   onValueChange={setSaveAsCommon}
+                  disabled={!token}
                   trackColor={{ false: p.track, true: p.orange }}
                   thumbColor="#FFFFFF"
                   ios_backgroundColor={p.track}
                 />
-                <Text style={[styles.switchLabel, { color: p.sub }]}>存入常用食物（下次直接选）</Text>
+                <Text style={[styles.switchLabel, { color: token ? p.sub : p.faint }]}>
+                  {token ? "存入常用食物（下次直接选）" : "登录后可存入常用食物"}
+                </Text>
               </Pressable>
+              <Text style={[styles.contributeNote, { color: p.faint }]}>手动填写的食材会同步到公共食物库（仅名称与营养值），同名自动去重。</Text>
               <V15Button p={p} label="保存饮食记录" icon="check" loading={saving} disabled={!manualReady} onPress={() => void addManual()} />
             </V15Card>
           ) : (
@@ -470,6 +493,7 @@ const makeStyles = (p: ReturnType<typeof useV15>) =>
     fieldCell: { flex: 1, minWidth: 0 },
     switchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, marginBottom: 10 },
     switchLabel: { ...typography.meta, flex: 1 },
+    contributeNote: { ...typography.meta, marginTop: -4, marginBottom: 10 },
     recentRow: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, paddingVertical: 8 },
     miniAdd: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center" },
     advice: { flexDirection: "row", gap: 9, alignItems: "flex-start" },

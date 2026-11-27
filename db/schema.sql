@@ -1390,6 +1390,10 @@ CREATE TABLE IF NOT EXISTS food_items (
   fiber_g      numeric,
   sodium_mg    numeric,
   license      text NOT NULL,
+  status       text NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected')),
+  submitted_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  submitted_by_anon_id text,
+  submitted_at timestamptz,
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now(),
   UNIQUE (source, source_id)
@@ -1399,6 +1403,8 @@ CREATE INDEX IF NOT EXISTS idx_food_items_name_trgm ON food_items USING gin (nam
 CREATE INDEX IF NOT EXISTS idx_food_items_aliases   ON food_items USING gin (aliases);
 CREATE INDEX IF NOT EXISTS idx_food_items_meal_tags ON food_items USING gin (meal_tags);
 CREATE INDEX IF NOT EXISTS idx_food_items_category  ON food_items (category);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_food_items_user_name ON food_items (lower(name)) WHERE source = 'user';
+CREATE INDEX IF NOT EXISTS idx_food_items_user_submitter ON food_items (submitted_by_user_id) WHERE submitted_by_user_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS food_import_runs (
   id            bigserial PRIMARY KEY,
